@@ -43,15 +43,6 @@
     <img src="https://img.shields.io/github/stars/devasignhq?style=social&label=Star&maxAge=2592000" alt="GitHub stars">
   </a>
 
-  <br/>
-  </div>
-  <br/>
-
-  <a style="display: block; margin: 0 auto;">
-      <picture>
-        <img alt="DevAsign Contributor App" src="./public/devasign-contributor.svg" style="display: block; margin: 0 auto;">
-      </picture>
-    </a>
   </div>
 
 ## DevAsign Mobile App
