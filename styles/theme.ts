@@ -1,0 +1,50 @@
+export const theme = {
+  layout: {
+    page: "min-h-screen bg-background text-white flex flex-col relative font-sans",
+    centeredPage: "min-h-screen flex flex-col items-center justify-center p-6 bg-background relative overflow-hidden",
+    header: "shrink-0 bg-background/95 backdrop-blur-xl border-b border-white/5 px-4 py-3 flex items-center gap-4 sticky top-0 z-30",
+    headerTitle: "text-lg font-bold text-white",
+    scrollableContent: "flex-1 overflow-y-auto hide-scrollbar p-5 pb-36 max-w-2xl mx-auto w-full",
+    scrollableContentFull: "flex-1 overflow-y-auto hide-scrollbar p-5 pb-24 max-w-2xl mx-auto w-full",
+    fixedBottom: "fixed bottom-0 left-0 right-0 p-5 bg-background/80 backdrop-blur-xl border-t border-white/5 z-20 space-y-3",
+    section: "space-y-4 mb-6",
+    rowBetween: "flex items-center justify-between",
+    rowCenter: "flex items-center gap-2",
+  },
+  typography: {
+    h1: "text-4xl font-bold tracking-tighter text-white",
+    h2: "text-2xl font-bold text-white leading-tight",
+    h3: "text-xl font-bold text-white",
+    h4: "text-lg font-bold text-white",
+    body: "text-sm text-text-secondary leading-relaxed",
+    bodyHighlight: "text-sm text-white",
+    caption: "text-xs text-text-secondary",
+    captionLabel: "text-[10px] text-text-secondary uppercase tracking-wider font-bold",
+    label: "text-xs font-bold text-text-secondary uppercase tracking-wider ml-1",
+    mono: "font-mono text-xs",
+    link: "text-primary hover:underline cursor-pointer",
+  },
+  components: {
+    card: "bg-surface border border-white/5 rounded-xl p-4",
+    cardHover: "bg-surface border border-white/5 rounded-xl p-4 active:scale-[0.98] transition-transform cursor-pointer",
+    iconButton: "p-2 hover:bg-surface rounded-full transition-colors text-white",
+    backButton: "p-2 -ml-2 hover:bg-surface rounded-full transition-colors text-white",
+    input: "w-full bg-surface border border-white/10 rounded-xl p-4 text-sm text-white focus:border-primary focus:outline-none font-mono transition-colors",
+    select: "w-full appearance-none bg-surface border border-white/10 rounded-xl p-4 text-sm text-white focus:border-primary focus:outline-none",
+    textarea: "w-full bg-surface border border-white/10 rounded-xl p-4 text-sm text-white focus:border-primary focus:outline-none resize-none",
+    badge: {
+        base: "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border",
+        primary: "bg-primary/10 text-primary border-primary/20",
+        warning: "bg-[#F59E0B]/10 text-[#F59E0B] border-[#F59E0B]/20",
+        success: "bg-success/10 text-success border-success/20",
+        outline: "bg-transparent border-white/20 text-text-secondary",
+    }
+  },
+  ui: {
+    shimmer: "animate-pulse bg-white/5",
+    divider: "border-b border-white/5",
+    backdrop: "absolute inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300",
+    bottomSheet: "relative w-full max-w-lg bg-[#111] border-t border-white/10 rounded-t-[2rem] p-6 pb-8 shadow-2xl animate-in slide-in-from-bottom duration-300",
+    handleBar: "w-12 h-1.5 bg-white/20 rounded-full mx-auto mb-6",
+  }
+};
