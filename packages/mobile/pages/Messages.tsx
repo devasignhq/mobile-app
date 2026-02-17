@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Search, ArrowLeft, Paperclip, Send, FileText, CheckCheck, Lock, Link as LinkIcon, Image as ImageIcon, X } from 'lucide-react';
+import { Search, ArrowLeft, Paperclip, Send, FileText, CheckCheck, Lock, Link as LinkIcon, X } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 
 interface Message {
@@ -267,8 +267,8 @@ const ContactList: React.FC<{ onSelect: (id: string) => void }> = ({ onSelect })
 
                 <div className="mt-1.5 flex items-center gap-1.5">
                   <span className={`text-[10px] px-1.5 py-0.5 rounded border ${contact.status === 'Active' ? 'border-warning/30 text-warning bg-warning/10' :
-                      contact.status === 'Review' ? 'border-white/20 text-text-secondary bg-white/5' :
-                        'border-success/30 text-success bg-success/10'
+                    contact.status === 'Review' ? 'border-white/20 text-text-secondary bg-white/5' :
+                      'border-success/30 text-success bg-success/10'
                     }`}>
                     {contact.status}
                   </span>

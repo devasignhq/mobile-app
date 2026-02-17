@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, GitMerge, Wallet, MessageSquareText, Server, FileCode, CheckCircle2, X, Clock, ChevronRight, ExternalLink } from 'lucide-react';
+import { ArrowLeft, GitMerge, Wallet, MessageSquareText, Server, FileCode, X, Clock, ChevronRight, ExternalLink } from 'lucide-react';
 import { Button } from '../components/Shared';
 import { useNotifications } from '../contexts/NotificationContext';
 
@@ -43,8 +43,8 @@ export const Notifications: React.FC = () => {
     <div className="min-h-full bg-background pb-24 relative">
       {/* Header */}
       <div className="sticky top-0 z-30 bg-background/80 backdrop-blur-xl border-b border-white/5 px-4 py-4 flex items-center gap-4">
-        <button 
-          onClick={() => navigate('/explorer')} 
+        <button
+          onClick={() => navigate('/explorer')}
           className="p-2 -ml-2 hover:bg-surface rounded-full transition-colors text-white"
         >
           <ArrowLeft size={20} />
@@ -54,7 +54,7 @@ export const Notifications: React.FC = () => {
 
       <div className="p-4 space-y-3">
         {notifications.map((item) => (
-          <div 
+          <div
             key={item.id}
             onClick={() => setSelectedId(item.id)}
             className={`
@@ -82,13 +82,13 @@ export const Notifications: React.FC = () => {
                 <div className="flex justify-between items-start mb-0.5">
                   <h3 className="font-bold text-base text-white truncate pr-2">{item.title}</h3>
                   <div className="flex items-center gap-1">
-                     <span className={`text-xs font-medium ${item.isUnread ? 'text-primary' : 'text-text-secondary'}`}>
-                        {item.time}
-                     </span>
-                     {!item.isUnread && <ChevronRight size={14} className="text-text-secondary/50" />}
+                    <span className={`text-xs font-medium ${item.isUnread ? 'text-primary' : 'text-text-secondary'}`}>
+                      {item.time}
+                    </span>
+                    {!item.isUnread && <ChevronRight size={14} className="text-text-secondary/50" />}
                   </div>
                 </div>
-                
+
                 <p className="text-sm leading-relaxed line-clamp-2">
                   {item.description}
                 </p>
@@ -110,72 +110,72 @@ export const Notifications: React.FC = () => {
       {selectedNotification && (
         <div className="fixed inset-0 z-50 flex items-end justify-center">
           {/* Backdrop */}
-          <div 
+          <div
             className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300"
             onClick={handleCloseSheet}
-          ></div>
-          
+          />
+
           {/* Sheet */}
           <div className="relative w-full max-w-lg bg-[#111] border-t border-white/10 rounded-t-[2rem] p-6 pb-12 shadow-2xl animate-in slide-in-from-bottom duration-300">
-             {/* Handle Bar */}
-             <div className="w-12 h-1.5 bg-white/20 rounded-full mx-auto mb-6"></div>
-             
-             {/* Header */}
-             <div className="flex justify-between items-start mb-4">
-                <div>
-                   {React.cloneElement(getIcon(selectedNotification.type) as React.ReactElement<any>, { size: 28 })}
-                </div>
-                <button 
-                  onClick={handleCloseSheet}
-                  className="p-2 bg-surface rounded-full text-text-secondary hover:text-white hover:bg-white/10 border border-white/5 transition-colors"
+            {/* Handle Bar */}
+            <div className="w-12 h-1.5 bg-white/20 rounded-full mx-auto mb-6"></div>
+
+            {/* Header */}
+            <div className="flex justify-between items-start mb-4">
+              <div>
+                {React.cloneElement(getIcon(selectedNotification.type) as React.ReactElement<{ size: number }>, { size: 28 })}
+              </div>
+              <button
+                onClick={handleCloseSheet}
+                className="p-2 bg-surface rounded-full text-text-secondary hover:text-white hover:bg-white/10 border border-white/5 transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <h2 className="text-xl font-bold text-white mb-2 leading-tight">{selectedNotification.title}</h2>
+            <div className="flex items-center gap-2 text-text-secondary text-sm mb-6">
+              <Clock size={14} />
+              <span>Received {selectedNotification.time} ago</span>
+            </div>
+
+            <div className="p-5 bg-surface rounded-xl border border-white/5 mb-8">
+              <p className="text-base text-gray-300 leading-relaxed">
+                {selectedNotification.details}
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-3">
+              {selectedNotification.actionLink && (
+                <Button
+                  fullWidth
+                  size="lg"
+                  variant="primary"
+                  className="flex items-center gap-2 justify-center shadow-xl shadow-primary/10"
+                  onClick={() => {
+                    if (selectedNotification.isInternal) {
+                      handleCloseSheet();
+                      navigate(selectedNotification.actionLink!);
+                    } else {
+                      window.open(selectedNotification.actionLink, '_blank');
+                    }
+                  }}
                 >
-                   <X size={20} />
-                </button>
-             </div>
-
-             <h2 className="text-xl font-bold text-white mb-2 leading-tight">{selectedNotification.title}</h2>
-             <div className="flex items-center gap-2 text-text-secondary text-sm mb-6">
-                <Clock size={14} />
-                <span>Received {selectedNotification.time} ago</span>
-             </div>
-
-             <div className="p-5 bg-surface rounded-xl border border-white/5 mb-8">
-                <p className="text-base text-gray-300 leading-relaxed">
-                   {selectedNotification.details}
-                </p>
-             </div>
-
-             <div className="flex flex-col gap-3">
-                {selectedNotification.actionLink && (
-                    <Button 
-                        fullWidth 
-                        size="lg" 
-                        variant="primary"
-                        className="flex items-center gap-2 justify-center shadow-xl shadow-primary/10"
-                        onClick={() => {
-                            if (selectedNotification.isInternal) {
-                                handleCloseSheet();
-                                navigate(selectedNotification.actionLink!);
-                            } else {
-                                window.open(selectedNotification.actionLink, '_blank');
-                            }
-                        }}
-                    >
-                        {selectedNotification.actionLabel}
-                        {!selectedNotification.isInternal && <ExternalLink size={18} className="opacity-80" />}
-                    </Button>
-                )}
-                
-                <Button 
-                    fullWidth 
-                    size="lg" 
-                    variant={selectedNotification.actionLink ? "outline" : "primary"}
-                    onClick={handleCloseSheet}
-                    className={selectedNotification.actionLink ? "border-white/10 text-text-secondary hover:text-white hover:bg-white/5" : ""}
-                >
-                    {selectedNotification.actionLink ? "Close" : "Dismiss"}
+                  {selectedNotification.actionLabel}
+                  {!selectedNotification.isInternal && <ExternalLink size={18} className="opacity-80" />}
                 </Button>
-             </div>
+              )}
+
+              <Button
+                fullWidth
+                size="lg"
+                variant={selectedNotification.actionLink ? "outline" : "primary"}
+                onClick={handleCloseSheet}
+                className={selectedNotification.actionLink ? "border-white/10 text-text-secondary hover:text-white hover:bg-white/5" : ""}
+              >
+                {selectedNotification.actionLink ? "Close" : "Dismiss"}
+              </Button>
+            </div>
           </div>
         </div>
       )}

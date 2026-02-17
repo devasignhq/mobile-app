@@ -1,6 +1,6 @@
 import React, { ReactNode } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, CheckSquare, MessageSquare, Wallet, User as UserIcon, LogOut } from 'lucide-react';
+import { LayoutDashboard, CheckSquare, MessageSquare, Wallet, User as UserIcon } from 'lucide-react';
 import { theme } from '../styles/theme';
 
 // --- BUTTON ---
@@ -10,16 +10,16 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   fullWidth?: boolean;
 }
 
-export const Button: React.FC<ButtonProps> = ({ 
-  children, 
-  variant = 'primary', 
-  size = 'md', 
-  fullWidth = false, 
-  className = '', 
-  ...props 
+export const Button: React.FC<ButtonProps> = ({
+  children,
+  variant = 'primary',
+  size = 'md',
+  fullWidth = false,
+  className = '',
+  ...props
 }) => {
   const baseStyles = "inline-flex items-center justify-center font-medium transition-all focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed rounded-lg active:scale-95";
-  
+
   const variants = {
     primary: "bg-primary text-background hover:bg-opacity-90 shadow-lg shadow-orange-900/20",
     secondary: "bg-surface text-text-primary border border-border hover:border-primary/50",
@@ -34,8 +34,8 @@ export const Button: React.FC<ButtonProps> = ({
   };
 
   return (
-    <button 
-      className={`${baseStyles} ${variants[variant]} ${sizes[size]} ${fullWidth ? 'w-full' : ''} ${className}`} 
+    <button
+      className={`${baseStyles} ${variants[variant]} ${sizes[size]} ${fullWidth ? 'w-full' : ''} ${className}`}
       {...props}
     >
       {children}
@@ -45,7 +45,7 @@ export const Button: React.FC<ButtonProps> = ({
 
 // --- CARD ---
 export const Card: React.FC<{ children: ReactNode; className?: string; onClick?: () => void }> = ({ children, className = '', onClick }) => (
-  <div 
+  <div
     onClick={onClick}
     className={`${theme.components.card} ${onClick ? 'hover:border-primary/50 cursor-pointer transition-colors' : ''} overflow-hidden relative ${className}`}
   >
@@ -54,8 +54,8 @@ export const Card: React.FC<{ children: ReactNode; className?: string; onClick?:
 );
 
 // --- BADGE ---
-export const Badge: React.FC<{ children: ReactNode; variant?: 'default' | 'outline' | 'success' | 'warning' | 'error'; className?: string }> = ({ 
-  children, 
+export const Badge: React.FC<{ children: ReactNode; variant?: 'default' | 'outline' | 'success' | 'warning' | 'error'; className?: string }> = ({
+  children,
   variant = 'default',
   className = ''
 }) => {
@@ -93,7 +93,7 @@ export const Layout: React.FC<{ children: ReactNode }> = ({ children }) => {
 
   return (
     <div className="h-screen w-full bg-background text-text-primary flex flex-col overflow-hidden font-sans">
-      
+
       {/* Main Content - Mobile Optimized Scroll Container */}
       <main className={`flex-1 overflow-y-auto scroll-smooth hide-scrollbar ${showBottomNav ? 'pb-24' : ''}`}>
         <div className="w-full min-h-full">
@@ -111,11 +111,10 @@ export const Layout: React.FC<{ children: ReactNode }> = ({ children }) => {
                 <button
                   key={item.path}
                   onClick={() => navigate(item.path)}
-                  className={`relative flex flex-col items-center justify-center flex-1 h-14 rounded-full transition-all duration-300 gap-0.5 ${
-                    isActive 
-                      ? 'bg-white/10 text-primary translate-y-[-2px]' 
+                  className={`relative flex flex-col items-center justify-center flex-1 h-14 rounded-full transition-all duration-300 gap-0.5 ${isActive
+                      ? 'bg-white/10 text-primary translate-y-[-2px]'
                       : 'text-white hover:bg-white/5'
-                  }`}
+                    }`}
                 >
                   <item.icon size={18} strokeWidth={isActive ? 2.5 : 2} className={isActive ? "translate-y-[1px]" : ""} />
                   <span className="text-[9px] font-light tracking-wide">{item.label}</span>

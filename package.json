@@ -1,24 +1,27 @@
 {
-  "name": "devasign-mobile",
-  "private": true,
-  "version": "0.0.0",
-  "type": "module",
-  "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview"
-  },
-  "dependencies": {
-    "react-dom": "^19.2.4",
-    "react-router-dom": "^7.13.0",
-    "recharts": "^3.7.0",
-    "lucide-react": "^0.563.0",
-    "react": "^19.2.4"
-  },
-  "devDependencies": {
-    "@types/node": "^22.14.0",
-    "@vitejs/plugin-react": "^5.0.0",
-    "typescript": "~5.8.2",
-    "vite": "^6.2.0"
-  }
+    "name": "devasign-monorepo",
+    "private": true,
+    "scripts": {
+        "dev": "pnpm -r dev",
+        "build": "pnpm -r build",
+        "lint": "pnpm -r lint",
+        "typecheck": "pnpm -r typecheck",
+        "test": "pnpm -r test"
+    },
+    "devDependencies": {
+        "@eslint/js": "^9.19.0",
+        "eslint": "^9.19.0",
+        "globals": "^15.14.0",
+        "prettier": "^3.4.2",
+        "typescript": "~5.7.2",
+        "typescript-eslint": "^8.20.0"
+    },
+    "dependencies": {
+        "@types/cors": "^2.8.19",
+        "@types/express": "^5.0.6",
+        "@types/node": "^22.19.11",
+        "cors": "^2.8.6",
+        "dotenv": "^17.3.1",
+        "express": "^5.2.1"
+    }
 }
