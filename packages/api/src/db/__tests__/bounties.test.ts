@@ -71,6 +71,20 @@ describe('Bounties Table Schema', () => {
         // but we can verify the column existence and basic properties.
     });
 
+    it('should have the correct indexes and unique constraints', () => {
+        const config = getTableConfig(bounties);
+
+        const indexNames = config.indexes.map(i => i.config.name);
+        expect(indexNames).toContain('bounties_creator_id_idx');
+        expect(indexNames).toContain('bounties_assignee_id_idx');
+        expect(indexNames).toContain('bounties_status_idx');
+
+        // Check unique index on github_issue_id
+        const githubIssueIdIdx = config.indexes.find(i => i.config.name === 'bounties_github_issue_id_key');
+        expect(githubIssueIdIdx).toBeDefined();
+        expect(githubIssueIdIdx?.config.unique).toBe(true);
+    });
+
     it('should use the correct enums', () => {
         const difficultyColumn = getTableConfig(bounties).columns.find(c => c.name === 'difficulty');
         const statusColumn = getTableConfig(bounties).columns.find(c => c.name === 'status');

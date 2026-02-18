@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, varchar, bigint, jsonb, decimal, integer, uuid, pgEnum } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, varchar, bigint, jsonb, decimal, integer, uuid, pgEnum, index, uniqueIndex } from 'drizzle-orm/pg-core';
 
 export const difficultyEnum = pgEnum('difficulty', ['beginner', 'intermediate', 'advanced']);
 export const statusEnum = pgEnum('status', ['open', 'assigned', 'in_review', 'completed', 'cancelled']);
@@ -33,10 +33,17 @@ export const bounties = pgTable('bounties', {
     status: statusEnum('status').default('open').notNull(),
     deadline: timestamp('deadline'),
     creatorId: uuid('creator_id').references(() => users.id).notNull(),
-    assigneeId: uuid('assignee_id').references(() => users.id),
+    assigneeId: uuid('assignee_id').references(() => users.id, { onDelete: 'set null' }),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at')
         .notNull()
         .defaultNow(), // Note: DB trigger `update_bounties_updated_at` handles updates
+}, (table) => {
+    return {
+        creatorIdx: index('bounties_creator_id_idx').on(table.creatorId),
+        assigneeIdx: index('bounties_assignee_id_idx').on(table.assigneeId),
+        statusIdx: index('bounties_status_idx').on(table.status),
+        githubIssueIdKey: uniqueIndex('bounties_github_issue_id_key').on(table.githubIssueId),
+    };
 });
 

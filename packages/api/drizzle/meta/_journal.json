@@ -29,6 +29,13 @@
       "when": 1771433650176,
       "tag": "0003_add_bounties_trigger",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1771434030173,
+      "tag": "0004_complex_jackpot",
+      "breakpoints": true
     }
   ]
 }
