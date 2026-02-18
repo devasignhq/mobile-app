@@ -5,10 +5,10 @@ import { vi, type Mock } from 'vitest';
  * Mirrors the expected API of a database client (e.g., pg, Drizzle, Prisma).
  */
 export interface MockDbClient {
-    query: Mock<(...args: any[]) => any>;
-    connect: Mock<(...args: any[]) => any>;
-    disconnect: Mock<(...args: any[]) => any>;
-    transaction: Mock<(...args: any[]) => any>;
+    query: Mock<(sql: string, params?: any[]) => Promise<{ rows: any[]; rowCount: number }>>;
+    connect: Mock<() => Promise<void>>;
+    disconnect: Mock<() => Promise<void>>;
+    transaction: Mock<(fn: (tx: any) => Promise<any>) => Promise<any>>;
 }
 
 /**

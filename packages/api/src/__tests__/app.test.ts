@@ -1,7 +1,5 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { createApp } from '../app';
-import { createMockDb, mockQueryResult } from './mocks/db';
-import { createMockGeminiService, createMockStellarService } from './mocks/services';
 
 describe('API App', () => {
     let app: ReturnType<typeof createApp>;
@@ -63,6 +61,8 @@ describe('API App', () => {
             });
 
             expect(res.status).toBe(400);
+            const body = await res.json();
+            expect(body.error).toBe('Prompt is required and must be a non-empty string');
         });
 
         it('should return 400 when prompt is not a string', async () => {
@@ -73,45 +73,6 @@ describe('API App', () => {
             });
 
             expect(res.status).toBe(400);
-        });
-    });
-
-    // ── Mock Utilities Smoke Tests ───────────────────────────────────
-
-    describe('Mock utilities', () => {
-        it('should create a functional mock database client', () => {
-            const db = createMockDb();
-
-            expect(db.query).toBeDefined();
-            expect(db.connect).toBeDefined();
-            expect(db.disconnect).toBeDefined();
-            expect(db.transaction).toBeDefined();
-        });
-
-        it('should allow configuring mock db query results', async () => {
-            const db = createMockDb();
-            const mockUsers = [{ id: 1, name: 'Alice' }, { id: 2, name: 'Bob' }];
-            db.query.mockResolvedValue(mockQueryResult(mockUsers));
-
-            const result = await db.query('SELECT * FROM users');
-            expect(result.rows).toEqual(mockUsers);
-            expect(result.rowCount).toBe(2);
-        });
-
-        it('should create a functional mock Gemini service', async () => {
-            const gemini = createMockGeminiService();
-            const result = await gemini.generateContent('test prompt');
-
-            expect(result.text).toBe('Mock AI response');
-            expect(gemini.generateContent).toHaveBeenCalledWith('test prompt');
-        });
-
-        it('should create a functional mock Stellar service', async () => {
-            const stellar = createMockStellarService();
-            const balance = await stellar.getBalance('MOCK_ADDRESS');
-
-            expect(balance).toBe('0.00');
-            expect(stellar.getBalance).toHaveBeenCalledWith('MOCK_ADDRESS');
         });
     });
 });

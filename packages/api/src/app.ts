@@ -36,31 +36,25 @@ export function createApp() {
     });
 
     app.post('/api/gemini', async (c) => {
-        try {
-            const apiKey = process.env.GEMINI_API_KEY;
+        const apiKey = process.env.GEMINI_API_KEY;
 
-            if (!apiKey) {
-                return c.json({ error: 'Gemini API key not configured on server' }, 500);
-            }
-
-            const body = await c.req.json();
-            const { prompt } = body;
-
-            if (typeof prompt !== 'string' || prompt.trim() === '') {
-                return c.json({ error: 'Prompt is required and must be a non-empty string' }, 400);
-            }
-
-            console.log('Received prompt:', prompt);
-
-            return c.json({
-                message: 'Request received securely on backend',
-                status: 'success'
-            });
-
-        } catch (error: any) {
-            console.error('Error processing Gemini request:', error);
-            return c.json({ error: 'Internal server error' }, 500);
+        if (!apiKey) {
+            throw new Error('Gemini API key not configured on server');
         }
+
+        const body = await c.req.json();
+        const { prompt } = body;
+
+        if (typeof prompt !== 'string' || prompt.trim() === '') {
+            return c.json({ error: 'Prompt is required and must be a non-empty string' }, 400);
+        }
+
+        console.log('Received prompt:', prompt);
+
+        return c.json({
+            message: 'Request received securely on backend',
+            status: 'success'
+        });
     });
 
     return app;

@@ -11,7 +11,7 @@ import { afterEach, vi } from 'vitest';
 process.env.NODE_ENV = 'test';
 process.env.DATABASE_URL = 'postgresql://test:test@localhost:5432/test_db';
 process.env.GEMINI_API_KEY = 'test-gemini-api-key';
-process.env.JWT_SECRET = 'test-jwt-secret-that-is-long-enough-for-validation';
+process.env.JWT_SECRET = 'default-test-secret-for-ci-long-enough-for-validation';
 
 // Reset all mocks after each test to prevent state leakage
 afterEach(() => {
