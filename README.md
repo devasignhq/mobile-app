@@ -105,11 +105,26 @@ To stop the development environment:
 
 #### Environment Configuration
 
-This project uses `.env` files for configuration. Create the following files based on their examples:
-- **Root `.env`**: For Docker variables like `POSTGRES_USER`, `POSTGRES_PASSWORD`, etc.
-- **`packages/api/.env`**: For API-specific variables like `GEMINI_API_KEY` and `POSTGRES_*` credentials.
+This project uses `.env` files for configuration. Copy the example files and fill in your values:
 
-The API automatically composes `DATABASE_URL` from the individual `POSTGRES_*` variables at startup, so you only need to define your credentials once. You can also set `DATABASE_URL` directly to override this behavior.
+```bash
+cp .env.example .env
+cp packages/api/.env.example packages/api/.env
+```
+
+The `.env.example` files document all available variables, organized into the following groups:
+
+| Group | Variables | Required |
+|---|---|---|
+| **General** | `NODE_ENV`, `PORT` | No (defaults provided) |
+| **Database** | `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `POSTGRES_HOST`, `POSTGRES_PORT` | Yes |
+| **Redis** | `REDIS_URL` | No |
+| **GitHub OAuth** | `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `GITHUB_CALLBACK_URL` | No |
+| **JWT** | `JWT_SECRET`, `JWT_EXPIRES_IN` | No |
+| **Stellar** | `STELLAR_NETWORK`, `STELLAR_HORIZON_URL`, `STELLAR_ISSUER_SECRET` | No |
+| **Gemini AI** | `GEMINI_API_KEY` | Yes |
+
+The API automatically composes `DATABASE_URL` from the individual `POSTGRES_*` variables at startup, so you only need to define your credentials once. You can also set `DATABASE_URL` directly to override this behavior. Missing optional variables will produce a startup warning indicating which integrations are disabled.
 
 #### Running the App
 
