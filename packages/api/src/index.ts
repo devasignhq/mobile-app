@@ -7,6 +7,12 @@ import dotenv from 'dotenv';
 // Load environment variables
 dotenv.config();
 
+// Validate environment variables
+if (!process.env.GEMINI_API_KEY) {
+    console.error('FATAL ERROR: GEMINI_API_KEY is not defined in the environment.');
+    process.exit(1);
+}
+
 const app = new Hono();
 const port = Number(process.env.PORT) || 3001;
 
@@ -16,7 +22,7 @@ app.use('*', cors());
 
 // Rate limiter stub middleware
 app.use('*', async (_c, next) => {
-    // TODO: Implement rate limiting logic here
+    // TODO(#1): Implement a robust rate limiter (e.g., using `@hono/rate-limiter`).
     // For now, checks are skipped
     await next();
 });
@@ -24,10 +30,10 @@ app.use('*', async (_c, next) => {
 // Error handler
 app.onError((err, c) => {
     console.error('App Error:', err);
-    const errorMessage = process.env.NODE_ENV === 'production'
-        ? 'Internal server error'
-        : err.message;
-    return c.json({ error: 'Internal server error', details: errorMessage }, 500);
+    if (process.env.NODE_ENV === 'production') {
+        return c.json({ error: 'Internal server error' }, 500);
+    }
+    return c.json({ error: 'Internal server error', message: err.message }, 500);
 });
 
 // API Routes
@@ -49,6 +55,10 @@ app.post('/api/gemini', async (c) => {
 
         const body = await c.req.json();
         const { prompt } = body;
+
+        if (typeof prompt !== 'string' || prompt.trim() === '') {
+            return c.json({ error: 'Prompt is required and must be a non-empty string' }, 400);
+        }
 
         console.log('Received prompt:', prompt);
 
