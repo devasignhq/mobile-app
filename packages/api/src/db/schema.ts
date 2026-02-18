@@ -3,6 +3,8 @@ import { pgTable, text, timestamp, varchar, bigint, jsonb, decimal, integer, uui
 export const difficultyEnum = pgEnum('difficulty', ['beginner', 'intermediate', 'advanced']);
 export const statusEnum = pgEnum('status', ['open', 'assigned', 'in_review', 'completed', 'cancelled']);
 export const applicationStatusEnum = pgEnum('application_status', ['pending', 'accepted', 'rejected']);
+export const submissionStatusEnum = pgEnum('submission_status', ['pending', 'approved', 'rejected', 'disputed']);
+export const disputeStatusEnum = pgEnum('dispute_status', ['open', 'resolved', 'dismissed']);
 
 export const users = pgTable('users', {
     id: uuid('id').primaryKey().defaultRandom(),
@@ -60,6 +62,44 @@ export const applications = pgTable('applications', {
 }, (table) => {
     return {
         bountyApplicantUnique: uniqueIndex('applications_bounty_id_applicant_id_key').on(table.bountyId, table.applicantId),
+    };
+});
+
+export const submissions = pgTable('submissions', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    bountyId: uuid('bounty_id').references(() => bounties.id, { onDelete: 'cascade' }).notNull(),
+    developerId: uuid('developer_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+    prUrl: text('pr_url').notNull(),
+    supportingLinks: jsonb('supporting_links').$type<string[]>(),
+    notes: text('notes'),
+    status: submissionStatusEnum('status').default('pending').notNull(),
+    rejectionReason: text('rejection_reason'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at')
+        .notNull()
+        .defaultNow(), // Note: DB trigger `update_submissions_updated_at` handles updates
+}, (table) => {
+    return {
+        bountyIdx: index('submissions_bounty_id_idx').on(table.bountyId),
+        developerIdx: index('submissions_developer_id_idx').on(table.developerId),
+        statusIdx: index('submissions_status_idx').on(table.status),
+    };
+});
+
+export const disputes = pgTable('disputes', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    submissionId: uuid('submission_id').references(() => submissions.id, { onDelete: 'cascade' }).notNull(),
+    reason: text('reason').notNull(),
+    evidenceLinks: jsonb('evidence_links').$type<string[]>(),
+    status: disputeStatusEnum('status').default('open').notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at')
+        .notNull()
+        .defaultNow(), // Note: DB trigger `update_disputes_updated_at` handles updates
+}, (table) => {
+    return {
+        submissionIdx: index('disputes_submission_id_idx').on(table.submissionId),
+        statusIdx: index('disputes_status_idx').on(table.status),
     };
 });
 
