@@ -15,6 +15,13 @@
       "when": 1771422860652,
       "tag": "0001_wonderful_shotgun",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1771432840620,
+      "tag": "0002_sharp_hawkeye",
+      "breakpoints": true
     }
   ]
 }
