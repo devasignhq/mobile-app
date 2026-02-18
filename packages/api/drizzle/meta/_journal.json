@@ -8,6 +8,13 @@
       "when": 1771421757058,
       "tag": "0000_perfect_talos",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1771422860652,
+      "tag": "0001_wonderful_shotgun",
+      "breakpoints": true
     }
   ]
 }
