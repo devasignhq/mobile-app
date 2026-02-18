@@ -2,6 +2,7 @@ import { pgTable, text, timestamp, varchar, bigint, jsonb, decimal, integer, uui
 
 export const difficultyEnum = pgEnum('difficulty', ['beginner', 'intermediate', 'advanced']);
 export const statusEnum = pgEnum('status', ['open', 'assigned', 'in_review', 'completed', 'cancelled']);
+export const applicationStatusEnum = pgEnum('application_status', ['pending', 'accepted', 'rejected']);
 
 export const users = pgTable('users', {
     id: uuid('id').primaryKey().defaultRandom(),
@@ -44,6 +45,21 @@ export const bounties = pgTable('bounties', {
         assigneeIdx: index('bounties_assignee_id_idx').on(table.assigneeId),
         statusIdx: index('bounties_status_idx').on(table.status),
         githubIssueIdKey: uniqueIndex('bounties_github_issue_id_key').on(table.githubIssueId),
+    };
+});
+
+export const applications = pgTable('applications', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    bountyId: uuid('bounty_id').references(() => bounties.id, { onDelete: 'cascade' }).notNull(),
+    applicantId: uuid('applicant_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+    coverLetter: text('cover_letter').notNull(),
+    estimatedTime: integer('estimated_time').notNull(),
+    experienceLinks: jsonb('experience_links').$type<string[]>().default([]).notNull(),
+    status: applicationStatusEnum('status').default('pending').notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => {
+    return {
+        bountyApplicantUnique: uniqueIndex('applications_bounty_id_applicant_id_key').on(table.bountyId, table.applicantId),
     };
 });
 
