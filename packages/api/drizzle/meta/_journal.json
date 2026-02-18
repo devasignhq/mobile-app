@@ -22,6 +22,13 @@
       "when": 1771434355792,
       "tag": "0002_create_bounties_atomic",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1771434911863,
+      "tag": "0003_third_black_bird",
+      "breakpoints": true
     }
   ]
 }
