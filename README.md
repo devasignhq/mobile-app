@@ -2,9 +2,9 @@
 <div align="center">
   <a href="https://www.devasign.com?ref=github" style="display: block; margin: 0 auto;">
     <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="./public/devasign-white.png">
-      <source media="(prefers-color-scheme: light)" srcset="./public/devasign-black.png">
-      <img alt="DevAsign Logo" src="./public/devasign-white.png" height="80" style="display: block; margin: 0 auto;">
+      <source media="(prefers-color-scheme: dark)" srcset="./packages/mobile/public/devasign-white.png">
+      <source media="(prefers-color-scheme: light)" srcset="./packages/mobile/public/devasign-black.png">
+      <img alt="DevAsign Logo" src="./packages/mobile/public/devasign-white.png" height="80" style="display: block; margin: 0 auto;">
     </picture>
   </a>
 <br/>
@@ -97,6 +97,17 @@ Follow these steps to set up and run the project locally.
    ```bash
    docker compose up -d
    ```
+
+To stop the development environment:
+   ```bash
+   docker compose down
+   ```
+
+#### Environment Configuration
+
+This project uses `.env` files for configuration. Create the following files based on their examples:
+- **Root `.env`**: For Docker variables like `POSTGRES_USER`, `POSTGRES_PASSWORD`, etc.
+- **`packages/api/.env`**: For API-specific variables like `DATABASE_URL` and `GEMINI_API_KEY`.
 
 #### Running the App
 
