@@ -7,6 +7,18 @@ import dotenv from 'dotenv';
 // Load environment variables
 dotenv.config();
 
+// Compose DATABASE_URL from individual POSTGRES_* variables if not explicitly set.
+// This allows credentials to be defined in a single place (e.g., the root .env file).
+if (!process.env.DATABASE_URL) {
+    const { POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB } = process.env;
+    const POSTGRES_HOST = process.env.POSTGRES_HOST || 'localhost';
+    const POSTGRES_PORT = process.env.POSTGRES_PORT || '5432';
+
+    if (POSTGRES_USER && POSTGRES_PASSWORD && POSTGRES_DB) {
+        process.env.DATABASE_URL = `postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}`;
+    }
+}
+
 // Validate environment variables
 if (!process.env.GEMINI_API_KEY) {
     console.error('FATAL ERROR: GEMINI_API_KEY is not defined in the environment.');
