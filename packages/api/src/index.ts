@@ -15,7 +15,7 @@ app.use('*', logger());
 app.use('*', cors());
 
 // Rate limiter stub middleware
-app.use('*', async (c, next) => {
+app.use('*', async (_c, next) => {
     // TODO: Implement rate limiting logic here
     // For now, checks are skipped
     await next();
@@ -24,11 +24,14 @@ app.use('*', async (c, next) => {
 // Error handler
 app.onError((err, c) => {
     console.error('App Error:', err);
-    return c.json({ error: 'Internal server error', details: err.message }, 500);
+    const errorMessage = process.env.NODE_ENV === 'production'
+        ? 'Internal server error'
+        : err.message;
+    return c.json({ error: 'Internal server error', details: errorMessage }, 500);
 });
 
 // API Routes
-app.get('/api/health', (c) => {
+app.get('/health', (c) => {
     return c.json({ status: 'ok' });
 });
 
@@ -60,7 +63,7 @@ app.post('/api/gemini', async (c) => {
     }
 });
 
-console.log(`Server is running heavily on http://localhost:${port}`);
+console.log(`Server is running on http://localhost:${port}`);
 
 serve({
     fetch: app.fetch,
