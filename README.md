@@ -109,6 +109,8 @@ This project uses `.env` files for configuration. Create the following files bas
 - **Root `.env`**: For Docker variables like `POSTGRES_USER`, `POSTGRES_PASSWORD`, etc.
 - **`packages/api/.env`**: For API-specific variables like `DATABASE_URL` and `GEMINI_API_KEY`.
 
+In `packages/api/.env`, you should construct the `DATABASE_URL` using the same values you set for `POSTGRES_USER`, `POSTGRES_PASSWORD`, and `POSTGRES_DB` in your root `.env` file.
+
 #### Running the App
 
 Start the development server:
