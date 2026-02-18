@@ -1,0 +1,1 @@
+CREATE TRIGGER update_bounties_updated_at BEFORE UPDATE ON bounties FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();

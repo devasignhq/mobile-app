@@ -35,6 +35,8 @@ export const bounties = pgTable('bounties', {
     creatorId: uuid('creator_id').references(() => users.id).notNull(),
     assigneeId: uuid('assignee_id').references(() => users.id),
     createdAt: timestamp('created_at').defaultNow().notNull(),
-    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at')
+        .notNull()
+        .defaultNow(), // Note: DB trigger `update_bounties_updated_at` handles updates
 });
 
