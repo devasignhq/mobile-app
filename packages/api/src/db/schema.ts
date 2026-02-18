@@ -20,7 +20,6 @@ export const users = pgTable('users', {
         .notNull()
         .defaultNow(), // Note: DB trigger `update_users_updated_at` handles updates
 });
-(users as any).name = 'users';
 
 export const bounties = pgTable('bounties', {
     id: uuid('id').primaryKey().defaultRandom(),
@@ -48,14 +47,13 @@ export const bounties = pgTable('bounties', {
         githubIssueIdKey: uniqueIndex('bounties_github_issue_id_key').on(table.githubIssueId),
     };
 });
-(bounties as any).name = 'bounties';
 
 export const applications = pgTable('applications', {
     id: uuid('id').primaryKey().defaultRandom(),
-    bountyId: uuid('bounty_id').references(() => bounties.id).notNull(),
-    applicantId: uuid('applicant_id').references(() => users.id).notNull(),
+    bountyId: uuid('bounty_id').references(() => bounties.id, { onDelete: 'cascade' }).notNull(),
+    applicantId: uuid('applicant_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
     coverLetter: text('cover_letter').notNull(),
-    estimatedTime: text('estimated_time').notNull(),
+    estimatedTime: integer('estimated_time').notNull(),
     experienceLinks: jsonb('experience_links').$type<string[]>().default([]).notNull(),
     status: applicationStatusEnum('status').default('pending').notNull(),
     createdAt: timestamp('created_at').defaultNow().notNull(),
@@ -64,5 +62,4 @@ export const applications = pgTable('applications', {
         bountyApplicantUnique: uniqueIndex('applications_bounty_id_applicant_id_key').on(table.bountyId, table.applicantId),
     };
 });
-(applications as any).name = 'applications';
 
