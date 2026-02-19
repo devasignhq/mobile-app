@@ -109,13 +109,12 @@ export const disputes = pgTable('disputes', {
 export const messages = pgTable('messages', {
     id: uuid('id').primaryKey().defaultRandom(),
     bountyId: uuid('bounty_id').references(() => bounties.id, { onDelete: 'cascade' }).notNull(),
-    senderId: uuid('sender_id').references(() => users.id, { onDelete: 'no action' }).notNull(),
-    recipientId: uuid('recipient_id').references(() => users.id, { onDelete: 'no action' }).notNull(),
+    senderId: uuid('sender_id').references(() => users.id, { onDelete: 'set null' }),
+    recipientId: uuid('recipient_id').references(() => users.id, { onDelete: 'set null' }),
     // SECURITY: Stored XSS vector.
     // The content of a message is user-provided and will be rendered in the client.
-    // It MUST be sanitized on the backend before being inserted into the database
-    // to prevent malicious scripts from being stored and executed on other users' browsers.
-    // Use a library like 'dompurify' for sanitization.
+    // It MUST be sanitized on the backend before being inserted into the database.
+    // See: packages/api/docs/SECURITY_ISSUES.md for tracking and mitigation plan.
     content: text('content').notNull(),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     readAt: timestamp('read_at'),

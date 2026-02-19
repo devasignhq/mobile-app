@@ -38,8 +38,8 @@ describe('Messages Table Schema', () => {
 
         checkColumn('id', { notNull: true, hasDefault: true });
         checkColumn('bounty_id', { notNull: true, hasDefault: false });
-        checkColumn('sender_id', { notNull: true, hasDefault: false });
-        checkColumn('recipient_id', { notNull: true, hasDefault: false });
+        checkColumn('sender_id', { notNull: false, hasDefault: false });
+        checkColumn('recipient_id', { notNull: false, hasDefault: false });
         checkColumn('content', { notNull: true, hasDefault: false });
         checkColumn('created_at', { notNull: true, hasDefault: true });
         checkColumn('read_at', { notNull: false, hasDefault: false });

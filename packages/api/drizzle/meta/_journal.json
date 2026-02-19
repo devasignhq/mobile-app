@@ -57,6 +57,13 @@
       "when": 1771498117714,
       "tag": "0007_melted_gunslinger",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1771498730394,
+      "tag": "0008_adorable_loki",
+      "breakpoints": true
     }
   ]
 }
