@@ -121,6 +121,8 @@ export const messages = pgTable('messages', {
 }, (table) => {
     return {
         bountyCreatedAtIdx: index('messages_bounty_id_created_at_idx').on(table.bountyId, desc(table.createdAt)),
+        senderIdIdx: index('messages_sender_id_idx').on(table.senderId),
+        recipientIdIdx: index('messages_recipient_id_idx').on(table.recipientId),
         senderNotRecipient: check('messages_sender_not_recipient', sql`"sender_id" <> "recipient_id"`),
     };
 });
