@@ -86,6 +86,7 @@ export const submissions = pgTable('submissions', {
     };
 });
 
+
 export const disputes = pgTable('disputes', {
     id: uuid('id').primaryKey().defaultRandom(),
     submissionId: uuid('submission_id').references(() => submissions.id, { onDelete: 'cascade' }).notNull(),
@@ -102,4 +103,19 @@ export const disputes = pgTable('disputes', {
         statusIdx: index('disputes_status_idx').on(table.status),
     };
 });
+
+export const messages = pgTable('messages', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    bountyId: uuid('bounty_id').references(() => bounties.id, { onDelete: 'cascade' }).notNull(),
+    senderId: uuid('sender_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+    recipientId: uuid('recipient_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+    content: text('content').notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    readAt: timestamp('read_at'),
+}, (table) => {
+    return {
+        bountyCreatedAtIdx: index('messages_bounty_id_created_at_idx').on(table.bountyId, table.createdAt),
+    };
+});
+
 

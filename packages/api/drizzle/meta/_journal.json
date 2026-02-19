@@ -43,6 +43,13 @@
       "when": 1771440000000,
       "tag": "0005_create_submissions_disputes",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1771494847931,
+      "tag": "0006_complex_jigsaw",
+      "breakpoints": true
     }
   ]
 }
