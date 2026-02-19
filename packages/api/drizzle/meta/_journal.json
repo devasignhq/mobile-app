@@ -75,22 +75,8 @@
     {
       "idx": 10,
       "version": "7",
-      "when": 1771500007292,
-      "tag": "0010_daffy_wolfsbane",
-      "breakpoints": true
-    },
-    {
-      "idx": 11,
-      "version": "7",
-      "when": 1771502278404,
-      "tag": "0011_refinements_part_1",
-      "breakpoints": true
-    },
-    {
-      "idx": 12,
-      "version": "7",
-      "when": 1771503286691,
-      "tag": "0012_conscious_sentry",
+      "when": 1771503881042,
+      "tag": "0010_sweet_butterfly",
       "breakpoints": true
     }
   ]

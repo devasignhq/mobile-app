@@ -1,5 +1,5 @@
 {
-  "id": "9864c930-5113-488c-a5f0-bb94215da9c7",
+  "id": "3c7ba20d-6276-4c9e-85f4-4fe21c460aab",
   "prevId": "8a90305a-176c-4a44-8b71-3b17e3468f7e",
   "version": "7",
   "dialect": "postgresql",
@@ -466,6 +466,13 @@
           "primaryKey": false,
           "notNull": true,
           "default": "'pending'"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
         }
       },
       "indexes": {
@@ -495,6 +502,28 @@
             }
           ],
           "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "ext_req_bounty_dev_pending_uniq_idx": {
+          "name": "ext_req_bounty_dev_pending_uniq_idx",
+          "columns": [
+            {
+              "expression": "bounty_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "developer_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"extension_requests\".\"status\" = 'pending'",
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -895,6 +924,13 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
         }
       },
       "indexes": {
@@ -955,7 +991,7 @@
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
+          "onDelete": "restrict",
           "onUpdate": "no action"
         },
         "transactions_bounty_id_bounties_id_fk": {

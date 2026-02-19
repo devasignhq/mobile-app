@@ -19,6 +19,7 @@ describe('Transactions Table Schema', () => {
         expect(columnNames).toContain('stellar_tx_hash');
         expect(columnNames).toContain('status');
         expect(columnNames).toContain('created_at');
+        expect(columnNames).toContain('updated_at');
     });
 
     it('should have a uuid primary key for the id column', () => {
@@ -45,6 +46,7 @@ describe('Transactions Table Schema', () => {
         checkColumn('stellar_tx_hash', { notNull: false, hasDefault: false });
         checkColumn('status', { notNull: true, hasDefault: true });
         checkColumn('created_at', { notNull: true, hasDefault: true });
+        checkColumn('updated_at', { notNull: true, hasDefault: true });
     });
 
     it('should have correct indexes', () => {

@@ -134,13 +134,17 @@ export const extensionRequests = pgTable('extension_requests', {
     id: uuid('id').primaryKey().defaultRandom(),
     bountyId: uuid('bounty_id').references(() => bounties.id, { onDelete: 'cascade' }).notNull(),
     developerId: uuid('developer_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
-    requestedAt: timestamp('requested_at').defaultNow().notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
     newDeadline: timestamp('new_deadline').notNull(),
     status: extensionRequestStatusEnum('status').default('pending').notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (table) => {
     return {
         bountyIdx: index('extension_requests_bounty_id_idx').on(table.bountyId),
         developerIdx: index('extension_requests_developer_id_idx').on(table.developerId),
+        bountyDevPendingUniqIdx: uniqueIndex('ext_req_bounty_dev_pending_uniq_idx')
+            .on(table.bountyId, table.developerId)
+            .where(sql`${table.status} = 'pending'`),
     };
 });
 
@@ -150,9 +154,10 @@ export const transactions = pgTable('transactions', {
     type: transactionTypeEnum('type').notNull(),
     amountUsdc: decimal('amount_usdc', { precision: 20, scale: 7 }).notNull(),
     bountyId: uuid('bounty_id').references(() => bounties.id, { onDelete: 'set null' }),
-    stellarTxHash: text('stellar_tx_hash').unique(),
+    stellarTxHash: varchar('stellar_tx_hash', { length: 64 }).unique(),
     status: transactionStatusEnum('status').default('pending').notNull(),
     createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (table) => {
     return {
         userIdIdx: index('transactions_user_id_idx').on(table.userId),

@@ -14,9 +14,10 @@ describe('Extension Requests Table Schema', () => {
         expect(columnNames).toContain('id');
         expect(columnNames).toContain('bounty_id');
         expect(columnNames).toContain('developer_id');
-        expect(columnNames).toContain('requested_at');
+        expect(columnNames).toContain('created_at');
         expect(columnNames).toContain('new_deadline');
         expect(columnNames).toContain('status');
+        expect(columnNames).toContain('updated_at');
     });
 
     it('should have a uuid primary key for the id column', () => {
@@ -38,16 +39,21 @@ describe('Extension Requests Table Schema', () => {
         checkColumn('id', { notNull: true, hasDefault: true });
         checkColumn('bounty_id', { notNull: true, hasDefault: false });
         checkColumn('developer_id', { notNull: true, hasDefault: false });
-        checkColumn('requested_at', { notNull: true, hasDefault: true });
+        checkColumn('created_at', { notNull: true, hasDefault: true });
         checkColumn('new_deadline', { notNull: true, hasDefault: false });
         checkColumn('status', { notNull: true, hasDefault: true });
+        checkColumn('updated_at', { notNull: true, hasDefault: true });
     });
 
-    it('should have correct indexes', () => {
+    it('should have correct indexes and unique constraints', () => {
         const config = getTableConfig(extensionRequests);
         const indexNames = config.indexes.map(i => i.config.name);
         expect(indexNames).toContain('extension_requests_bounty_id_idx');
         expect(indexNames).toContain('extension_requests_developer_id_idx');
+
+        const pendingUniqueIndex = config.indexes.find(i => i.config.name === 'ext_req_bounty_dev_pending_uniq_idx');
+        expect(pendingUniqueIndex).toBeDefined();
+        expect(pendingUniqueIndex?.config.unique).toBe(true);
     });
 
     it('should use the correct enum for status', () => {
