@@ -1,4 +1,6 @@
-import { pgTable, text, timestamp, varchar, bigint, jsonb, decimal, integer, uuid, pgEnum, index, uniqueIndex } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, varchar, bigint, jsonb, decimal, integer, uuid, pgEnum, index, uniqueIndex, check } from 'drizzle-orm/pg-core';
+import { sql, desc } from 'drizzle-orm';
+
 
 export const difficultyEnum = pgEnum('difficulty', ['beginner', 'intermediate', 'advanced']);
 export const statusEnum = pgEnum('status', ['open', 'assigned', 'in_review', 'completed', 'cancelled']);
@@ -86,6 +88,7 @@ export const submissions = pgTable('submissions', {
     };
 });
 
+
 export const disputes = pgTable('disputes', {
     id: uuid('id').primaryKey().defaultRandom(),
     submissionId: uuid('submission_id').references(() => submissions.id, { onDelete: 'cascade' }).notNull(),
@@ -102,4 +105,26 @@ export const disputes = pgTable('disputes', {
         statusIdx: index('disputes_status_idx').on(table.status),
     };
 });
+
+export const messages = pgTable('messages', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    bountyId: uuid('bounty_id').references(() => bounties.id, { onDelete: 'cascade' }).notNull(),
+    senderId: uuid('sender_id').references(() => users.id, { onDelete: 'set null' }),
+    recipientId: uuid('recipient_id').references(() => users.id, { onDelete: 'set null' }),
+    // SECURITY: Stored XSS vector.
+    // The content of a message is user-provided and will be rendered in the client.
+    // It MUST be sanitized on the backend before being inserted into the database.
+    // See: packages/api/docs/SECURITY_ISSUES.md for tracking and mitigation plan.
+    content: text('content').notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    readAt: timestamp('read_at'),
+}, (table) => {
+    return {
+        bountyCreatedAtIdx: index('messages_bounty_id_created_at_idx').on(table.bountyId, desc(table.createdAt)),
+        senderIdIdx: index('messages_sender_id_idx').on(table.senderId),
+        recipientIdIdx: index('messages_recipient_id_idx').on(table.recipientId),
+        senderNotRecipient: check('messages_sender_not_recipient', sql`"sender_id" <> "recipient_id"`),
+    };
+});
+
 
