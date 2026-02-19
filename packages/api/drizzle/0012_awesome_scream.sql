@@ -1,0 +1,2 @@
+ALTER TABLE "transactions" DROP CONSTRAINT "transactions_stellar_tx_hash_unique";--> statement-breakpoint
+CREATE UNIQUE INDEX "transactions_stellar_tx_hash_unique_idx" ON "transactions" USING btree ("stellar_tx_hash");
