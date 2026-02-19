@@ -137,9 +137,7 @@ export const extensionRequests = pgTable('extension_requests', {
     createdAt: timestamp('created_at').defaultNow().notNull(),
     newDeadline: timestamp('new_deadline').notNull(),
     status: extensionRequestStatusEnum('status').default('pending').notNull(),
-    updatedAt: timestamp('updated_at')
-        .notNull()
-        .defaultNow(), // Note: DB trigger `update_extension_requests_updated_at` handles updates
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (table) => {
     return {
         bountyIdx: index('extension_requests_bounty_id_idx').on(table.bountyId),
@@ -156,17 +154,14 @@ export const transactions = pgTable('transactions', {
     type: transactionTypeEnum('type').notNull(),
     amountUsdc: decimal('amount_usdc', { precision: 20, scale: 7 }).notNull(),
     bountyId: uuid('bounty_id').references(() => bounties.id, { onDelete: 'set null' }),
-    stellarTxHash: varchar('stellar_tx_hash', { length: 64 }),
+    stellarTxHash: varchar('stellar_tx_hash', { length: 64 }).unique(),
     status: transactionStatusEnum('status').default('pending').notNull(),
     createdAt: timestamp('created_at').defaultNow().notNull(),
-    updatedAt: timestamp('updated_at')
-        .notNull()
-        .defaultNow(), // Note: DB trigger `update_transactions_updated_at` handles updates
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (table) => {
     return {
         userIdIdx: index('transactions_user_id_idx').on(table.userId),
         bountyIdIdx: index('transactions_bounty_id_idx').on(table.bountyId),
         statusIdx: index('transactions_status_idx').on(table.status),
-        stellarTxHashUniqIdx: uniqueIndex('transactions_stellar_tx_hash_unique_idx').on(table.stellarTxHash),
     };
 });
