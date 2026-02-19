@@ -7,6 +7,9 @@ export const statusEnum = pgEnum('status', ['open', 'assigned', 'in_review', 'co
 export const applicationStatusEnum = pgEnum('application_status', ['pending', 'accepted', 'rejected']);
 export const submissionStatusEnum = pgEnum('submission_status', ['pending', 'approved', 'rejected', 'disputed']);
 export const disputeStatusEnum = pgEnum('dispute_status', ['open', 'resolved', 'dismissed']);
+export const extensionRequestStatusEnum = pgEnum('extension_request_status', ['pending', 'approved', 'rejected']);
+export const transactionTypeEnum = pgEnum('transaction_type', ['bounty_funding', 'bounty_payout', 'bounty_refund']);
+export const transactionStatusEnum = pgEnum('transaction_status', ['pending', 'completed', 'failed']);
 
 export const users = pgTable('users', {
     id: uuid('id').primaryKey().defaultRandom(),
@@ -127,4 +130,33 @@ export const messages = pgTable('messages', {
     };
 });
 
+export const extensionRequests = pgTable('extension_requests', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    bountyId: uuid('bounty_id').references(() => bounties.id, { onDelete: 'cascade' }).notNull(),
+    developerId: uuid('developer_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+    requestedAt: timestamp('requested_at').defaultNow().notNull(),
+    newDeadline: timestamp('new_deadline').notNull(),
+    status: extensionRequestStatusEnum('status').default('pending').notNull(),
+}, (table) => {
+    return {
+        bountyIdx: index('extension_requests_bounty_id_idx').on(table.bountyId),
+        developerIdx: index('extension_requests_developer_id_idx').on(table.developerId),
+    };
+});
 
+export const transactions = pgTable('transactions', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+    type: transactionTypeEnum('type').notNull(),
+    amountUsdc: decimal('amount_usdc', { precision: 20, scale: 7 }).notNull(),
+    bountyId: uuid('bounty_id').references(() => bounties.id, { onDelete: 'set null' }),
+    stellarTxHash: text('stellar_tx_hash').unique(),
+    status: transactionStatusEnum('status').default('pending').notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => {
+    return {
+        userIdIdx: index('transactions_user_id_idx').on(table.userId),
+        bountyIdIdx: index('transactions_bounty_id_idx').on(table.bountyId),
+        statusIdx: index('transactions_status_idx').on(table.status),
+    };
+});
