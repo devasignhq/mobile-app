@@ -51,6 +51,8 @@ export const bounties = pgTable('bounties', {
         creatorIdx: index('bounties_creator_id_idx').on(table.creatorId),
         assigneeIdx: index('bounties_assignee_id_idx').on(table.assigneeId),
         statusIdx: index('bounties_status_idx').on(table.status),
+        statusDeadlineIdx: index('bounties_status_deadline_idx').on(table.status, table.deadline),
+        techTagsGinIdx: index('bounties_tech_tags_gin_idx').using('gin', table.techTags),
         githubIssueIdKey: uniqueIndex('bounties_github_issue_id_key').on(table.githubIssueId),
     };
 });
@@ -124,6 +126,7 @@ export const messages = pgTable('messages', {
 }, (table) => {
     return {
         bountyCreatedAtIdx: index('messages_bounty_id_created_at_idx').on(table.bountyId, desc(table.createdAt)),
+        recipientPaginationIdx: index('messages_recipient_pagination_idx').on(table.recipientId, desc(table.createdAt)),
         senderIdIdx: index('messages_sender_id_idx').on(table.senderId),
         recipientIdIdx: index('messages_recipient_id_idx').on(table.recipientId),
         senderNotRecipient: check('messages_sender_not_recipient', sql`"sender_id" <> "recipient_id"`),
@@ -154,14 +157,16 @@ export const transactions = pgTable('transactions', {
     type: transactionTypeEnum('type').notNull(),
     amountUsdc: decimal('amount_usdc', { precision: 20, scale: 7 }).notNull(),
     bountyId: uuid('bounty_id').references(() => bounties.id, { onDelete: 'set null' }),
-    stellarTxHash: varchar('stellar_tx_hash', { length: 64 }).unique(),
+    stellarTxHash: varchar('stellar_tx_hash', { length: 64 }),
     status: transactionStatusEnum('status').default('pending').notNull(),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (table) => {
     return {
         userIdIdx: index('transactions_user_id_idx').on(table.userId),
+        userHistoryIdx: index('transactions_user_history_idx').on(table.userId, desc(table.createdAt)),
         bountyIdIdx: index('transactions_bounty_id_idx').on(table.bountyId),
         statusIdx: index('transactions_status_idx').on(table.status),
+        stellarTxHashIdx: uniqueIndex('transactions_stellar_tx_hash_idx').on(table.stellarTxHash),
     };
 });
