@@ -15,7 +15,9 @@
         "db:seed": "tsx src/db/seed.ts"
     },
     "devDependencies": {
+        "@faker-js/faker": "^9.9.0",
         "drizzle-kit": "^0.31.9",
+        "postgres": "^3.4.8",
         "ts-node-dev": "^2.0.0",
         "tsx": "^4.19.2",
         "typescript": "^5.7.2",
