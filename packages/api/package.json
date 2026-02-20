@@ -8,11 +8,16 @@
         "lint": "eslint .",
         "typecheck": "tsc --noEmit",
         "test": "vitest run",
-        "test:watch": "vitest"
+        "test:watch": "vitest",
+        "db:generate": "drizzle-kit generate",
+        "db:migrate": "tsx src/db/migrate.ts",
+        "db:studio": "drizzle-kit studio",
+        "db:seed": "tsx src/db/seed.ts"
     },
     "devDependencies": {
         "drizzle-kit": "^0.31.9",
         "ts-node-dev": "^2.0.0",
+        "tsx": "^4.19.2",
         "typescript": "^5.7.2",
         "vitest": "^4.0.18"
     },
