@@ -1,6 +1,7 @@
 import { serve } from '@hono/node-server';
 import dotenv from 'dotenv';
 import { createApp } from './app';
+import { db } from './db';
 
 // Load environment variables
 dotenv.config();
@@ -55,7 +56,7 @@ if (missingOptional.length > 0) {
     );
 }
 
-const app = createApp();
+const app = createApp({ db });
 const port = Number(process.env.PORT) || 3001;
 
 console.log(`Server is running on http://localhost:${port}`);
