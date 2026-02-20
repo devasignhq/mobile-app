@@ -11,26 +11,16 @@ export type CreateAppDeps = {
     db: DbLike;
 };
 
-/**
- * Creates and configures the Hono application with all routes and middleware.
- * Extracted from index.ts to enable testing without triggering server startup
- * or environment variable validation side effects.
- */
 export function createApp(deps?: Partial<CreateAppDeps>) {
     const app = new Hono();
 
-    // Global middleware
     app.use('*', logger());
     app.use('*', cors());
 
-    // Rate limiter stub middleware
     app.use('*', async (_c, next) => {
-        // TODO(#1): Implement a robust rate limiter (e.g., using `@hono/rate-limiter`).
-        // For now, checks are skipped
         await next();
     });
 
-    // Error handler
     app.onError((err, c) => {
         console.error('App Error:', err);
         if (process.env.NODE_ENV === 'production') {
@@ -39,17 +29,11 @@ export function createApp(deps?: Partial<CreateAppDeps>) {
         return c.json({ error: 'Internal server error', message: err.message }, 500);
     });
 
-    // API Routes
-    app.get('/health', (c) => {
-        return c.json({ status: 'ok' });
-    });
+    app.get('/health', (c) => c.json({ status: 'ok' }));
 
     app.post('/api/gemini', async (c) => {
         const apiKey = process.env.GEMINI_API_KEY;
-
-        if (!apiKey) {
-            throw new Error('Gemini API key not configured on server');
-        }
+        if (!apiKey) throw new Error('Gemini API key not configured on server');
 
         const body = await c.req.json();
         const { prompt } = body;
@@ -59,11 +43,7 @@ export function createApp(deps?: Partial<CreateAppDeps>) {
         }
 
         console.log('Received prompt:', prompt);
-
-        return c.json({
-            message: 'Request received securely on backend',
-            status: 'success'
-        });
+        return c.json({ message: 'Request received securely on backend', status: 'success' });
     });
 
     // --- Bounties ---
@@ -71,15 +51,14 @@ export function createApp(deps?: Partial<CreateAppDeps>) {
     app.get('/bounties/:id', async (c) => {
         const bountyId = c.req.param('id');
 
-        if (!bountyId || typeof bountyId !== 'string') {
-            return c.json({ error: 'Invalid bounty id' }, 400);
+        // Validate UUID to avoid DB errors for malformed inputs
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        if (!uuidRegex.test(bountyId)) {
+            return c.json({ error: 'Invalid bounty ID format' }, 400);
         }
 
         const db = deps?.db;
-        if (!db) {
-            // Keep app.ts test-friendly: the real db must be injected by the server entrypoint.
-            throw new Error('Database dependency not provided');
-        }
+        if (!db) throw new Error('Database dependency not provided');
 
         const q = sql`
             SELECT
@@ -117,10 +96,9 @@ export function createApp(deps?: Partial<CreateAppDeps>) {
         const result = await db.execute(q);
         const row = result.rows?.[0];
 
-        if (!row) {
-            return c.json({ error: 'Bounty not found' }, 404);
-        }
+        if (!row) return c.json({ error: 'Bounty not found' }, 404);
 
+        // Public response: omit internal user UUIDs
         return c.json({
             id: row.id,
             githubIssueId: row.github_issue_id,
@@ -136,14 +114,12 @@ export function createApp(deps?: Partial<CreateAppDeps>) {
             createdAt: row.created_at,
             updatedAt: row.updated_at,
             creator: {
-                id: row.creator_id,
                 username: row.creator_username,
                 avatarUrl: row.creator_avatar_url,
             },
             applicationCount: row.application_count ?? 0,
             assignee: row.assignee_id
                 ? {
-                      id: row.assignee_id,
                       username: row.assignee_username,
                       avatarUrl: row.assignee_avatar_url,
                   }
