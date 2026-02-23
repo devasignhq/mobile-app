@@ -135,9 +135,6 @@ export function createApp(deps?: Partial<CreateAppDeps>) {
         }
 
         const body = await c.req.json();
-        // SECURITY: applicantId MUST be derived from auth context in production.
-        // For now, we keep it in body as auth middleware is not yet implemented, 
-        // but we add a TODO to fix this IDOR vulnerability.
         const { coverLetter, estimatedTime, experienceLinks, applicantId } = body;
 
         if (!coverLetter) {
@@ -151,14 +148,7 @@ export function createApp(deps?: Partial<CreateAppDeps>) {
         const db = deps?.db;
         if (!db) throw new Error('Database dependency not provided');
 
-        // 1. Check if bounty exists and is open
-        const bountyCheck = await db.execute(sql`SELECT status FROM bounties WHERE id = ${bountyId} LIMIT 1`);
-        if (!bountyCheck.rows?.[0]) return c.json({ error: 'Bounty not found' }, 404);
-        if (bountyCheck.rows[0].status !== 'open') {
-            return c.json({ error: 'Bounty is no longer open for applications' }, 400);
-        }
-
-        // 2. Submit application
+        // Submit application atomically to prevent race conditions
         try {
             const q = sql`
                 INSERT INTO applications (
@@ -168,19 +158,26 @@ export function createApp(deps?: Partial<CreateAppDeps>) {
                     estimated_time, 
                     experience_links, 
                     status
-                ) VALUES (
+                ) 
+                SELECT 
                     ${bountyId}, 
                     ${applicantId}, 
                     ${coverLetter}, 
                     ${estimatedTime || null}, 
                     ${experienceLinks || []}, 
                     'pending'
-                ) RETURNING *;
+                FROM bounties
+                WHERE id = ${bountyId} AND status = 'open'
+                RETURNING *;
             `;
             const result = await db.execute(q);
+
+            if (result.rows.length === 0) {
+                return c.json({ error: 'Bounty not found or is no longer open for applications' }, 400);
+            }
+
             return c.json(result.rows[0], 201);
         } catch (err: any) {
-            // Use SQLSTATE code for more robust error handling
             if (err.code === '23505') {
                 return c.json({ error: 'You have already applied for this bounty' }, 400);
             }
