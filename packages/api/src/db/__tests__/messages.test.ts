@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect } from 'vitest';
 import { messages } from '../schema';
 import { getTableConfig } from 'drizzle-orm/pg-core';

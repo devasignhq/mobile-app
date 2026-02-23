@@ -63,6 +63,9 @@ importers:
       hono:
         specifier: ^4.11.9
         version: 4.11.9
+      postgres:
+        specifier: ^3.4.8
+        version: 3.4.8
       uuid:
         specifier: ^13.0.0
         version: 13.0.0
@@ -73,9 +76,6 @@ importers:
       drizzle-kit:
         specifier: ^0.31.9
         version: 0.31.9
-      postgres:
-        specifier: ^3.4.8
-        version: 3.4.8
       ts-node-dev:
         specifier: ^2.0.0
         version: 2.0.0(@types/node@22.19.11)(typescript@5.8.3)

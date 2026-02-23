@@ -59,10 +59,11 @@ describe('Transactions Table Schema', () => {
 
     it('should have a unique constraint on stellar_tx_hash', () => {
         const config = getTableConfig(transactions);
-        const stellarTxHashColumn = config.columns.find(c => c.name === 'stellar_tx_hash');
-        // Unique column in Drizzle is often handled via uniqueIndex or unique() on column
-        // We defined it as .unique() on the column in schema.ts
-        expect(stellarTxHashColumn?.isUnique).toBe(true);
+        const indexNames = config.indexes.map(i => i.config.name);
+        expect(indexNames).toContain('transactions_stellar_tx_hash_idx');
+
+        const txHashIndex = config.indexes.find((i) => i.config.name === 'transactions_stellar_tx_hash_idx');
+        expect(txHashIndex?.config.unique).toBe(true);
     });
 
     it('should use the correct enums', () => {

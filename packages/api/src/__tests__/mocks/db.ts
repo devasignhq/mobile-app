@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { vi, type Mock } from 'vitest';
 
 /**

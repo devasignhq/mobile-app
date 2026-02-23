@@ -31,8 +31,13 @@ if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === 'YOUR_GEMINI_A
     process.exit(1);
 }
 
-if (!process.env.JWT_SECRET || process.env.JWT_SECRET === 'change-me-to-a-random-64-char-string') {
-    console.error('FATAL ERROR: JWT_SECRET is not defined or is set to the default placeholder.');
+if (!process.env.JWT_PRIVATE_KEY || process.env.JWT_PRIVATE_KEY.includes('CHANGE_ME')) {
+    console.error('FATAL ERROR: JWT_PRIVATE_KEY is not defined or is set to the default placeholder.');
+    process.exit(1);
+}
+
+if (!process.env.JWT_PUBLIC_KEY || process.env.JWT_PUBLIC_KEY.includes('CHANGE_ME')) {
+    console.error('FATAL ERROR: JWT_PUBLIC_KEY is not defined or is set to the default placeholder.');
     process.exit(1);
 }
 
