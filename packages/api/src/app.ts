@@ -127,5 +127,58 @@ export function createApp(deps?: Partial<CreateAppDeps>) {
         });
     });
 
+    app.post('/bounties/:id/apply', async (c) => {
+        const bountyId = c.req.param('id');
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        if (!uuidRegex.test(bountyId)) {
+            return c.json({ error: 'Invalid bounty ID format' }, 400);
+        }
+
+        const body = await c.req.json();
+        const { coverLetter, estimatedTime, experienceLinks, applicantId } = body;
+
+        if (!coverLetter) {
+            return c.json({ error: 'coverLetter is required' }, 400);
+        }
+
+        const db = deps?.db;
+        if (!db) throw new Error('Database dependency not provided');
+
+        // 1. Check if bounty exists and is open
+        const bountyCheck = await db.execute(sql`SELECT status FROM bounties WHERE id = ${bountyId} LIMIT 1`);
+        if (!bountyCheck.rows?.[0]) return c.json({ error: 'Bounty not found' }, 404);
+        if (bountyCheck.rows[0].status !== 'open') {
+            return c.json({ error: 'Bounty is no longer open for applications' }, 400);
+        }
+
+        // 2. Submit application
+        try {
+            const q = sql`
+                INSERT INTO applications (
+                    bounty_id, 
+                    applicant_id, 
+                    cover_letter, 
+                    estimated_time, 
+                    experience_links, 
+                    status
+                ) VALUES (
+                    ${bountyId}, 
+                    ${applicantId}, 
+                    ${coverLetter}, 
+                    ${estimatedTime || null}, 
+                    ${experienceLinks || []}, 
+                    'pending'
+                ) RETURNING *;
+            `;
+            const result = await db.execute(q);
+            return c.json(result.rows[0], 201);
+        } catch (err: any) {
+            if (err.message?.includes('unique constraint') || err.code === '23505') {
+                return c.json({ error: 'You have already applied for this bounty' }, 400);
+            }
+            throw err;
+        }
+    });
+
     return app;
 }
