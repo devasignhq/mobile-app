@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { PgDialect } from 'drizzle-orm/pg-core';
 
 const { findManyMock } = vi.hoisted(() => ({
     findManyMock: vi.fn(),
@@ -15,6 +16,7 @@ vi.mock('../db', () => ({
 }));
 
 import { createApp } from '../app';
+import { bounties } from '../db/schema';
 
 const baseBountyRow = {
     id: 'bounty-1',
@@ -82,6 +84,24 @@ describe('GET /bounties', () => {
         const body = await res.json();
         expect(body.error).toBe('amount_min cannot be greater than amount_max');
         expect(findManyMock).not.toHaveBeenCalled();
+    });
+
+    it('builds numeric SQL predicates for amount filters', async () => {
+        findManyMock.mockResolvedValue([]);
+
+        const res = await app.request('/bounties?amount_min=20&amount_max=100');
+
+        expect(res.status).toBe(200);
+        expect(findManyMock).toHaveBeenCalledTimes(1);
+
+        const where = findManyMock.mock.calls[0][0].where as (table: typeof bounties) => unknown;
+        const whereSql = where(bounties);
+        const query = new PgDialect().sqlToQuery(whereSql as Parameters<PgDialect['sqlToQuery']>[0]);
+
+        expect(query.sql).toContain('"bounties"."amount_usdc" >= ');
+        expect(query.sql).toContain('"bounties"."amount_usdc" <= ');
+        expect(query.sql.toLowerCase()).not.toContain('::text');
+        expect(query.params).toEqual(['20', '100']);
     });
 
     it('returns has_more=false and next_cursor=null when page is complete', async () => {
