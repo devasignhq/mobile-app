@@ -2,7 +2,7 @@ import * as dotenv from 'dotenv';
 import path from 'path';
 
 // Load environment variables from the root .env file
-dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
+dotenv.config({ path: path.resolve(__dirname, '../../../../.env') });
 
 export function getDatabaseUrl(): string {
     let databaseUrl = process.env.DATABASE_URL;

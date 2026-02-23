@@ -28,6 +28,19 @@ export const users = pgTable('users', {
         .defaultNow(), // Note: DB trigger `update_users_updated_at` handles updates
 });
 
+export const refreshTokens = pgTable('refresh_tokens', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+    token: varchar('token', { length: 255 }).notNull().unique(),
+    expiresAt: timestamp('expires_at').notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => {
+    return {
+        userIdIdx: index('refresh_tokens_user_id_idx').on(table.userId),
+        tokenIdx: index('refresh_tokens_token_idx').on(table.token),
+    };
+});
+
 export const bounties = pgTable('bounties', {
     id: uuid('id').primaryKey().defaultRandom(),
     githubIssueId: bigint('github_issue_id', { mode: 'number' }),
