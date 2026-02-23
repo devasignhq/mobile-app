@@ -38,8 +38,12 @@ export const authMiddleware = async (c: Context<{ Variables: Variables }>, next:
         return c.json({ error: 'Missing or invalid Authorization header' }, 401);
     }
 
-    // We already checked it starts with 'Bearer '. Let's just grab the rest of the string after 'Bearer '
-    const token = authHeader.substring(7).trim();
+    // Ensure it's either exactly 'Bearer' or starts with 'Bearer '
+    if (authHeader.length > 6 && authHeader[6] !== ' ') {
+        return c.json({ error: 'Missing or invalid Authorization header' }, 401);
+    }
+
+    const token = authHeader.substring(6).trim();
 
     if (!token) {
         return c.json({ error: 'Token missing from Authorization header' }, 401);
@@ -54,12 +58,6 @@ export const authMiddleware = async (c: Context<{ Variables: Variables }>, next:
     try {
         // Verify the token using the public key and RS256 algorithm
         const payload = await verify(token, publicKey, 'RS256') as JWTPayload;
-
-        // Ensure the token has not expired (hono/jwt verify usually does this, but good to be explicit or if we want custom error messages)
-        const currentTimestamp = Math.floor(Date.now() / 1000);
-        if (payload.exp && payload.exp < currentTimestamp) {
-            return c.json({ error: 'Token has expired' }, 401);
-        }
 
         if (!payload.sub) {
             return c.json({ error: 'Invalid token payload' }, 401);

@@ -83,19 +83,19 @@ describe('Auth Middleware', () => {
             expect(body.user).toEqual({ id: 'user-123', username: 'testuser' });
         });
 
-        it('should return 401 if token has expired', async () => {
-            // Mock verify to return an expired payload
-            vi.mocked(verify).mockResolvedValueOnce({ sub: 'user-123', username: 'testuser', exp: Math.floor(Date.now() / 1000) - 100 });
+        it('should return 401 if token is invalid or expired', async () => {
+            // Mock verify to throw an error (e.g., signature invalid, or token expired)
+            vi.mocked(verify).mockRejectedValueOnce(new Error('Token expired'));
 
             const res = await app.request('/protected/data', {
                 headers: {
-                    Authorization: 'Bearer expired.mocked.token'
+                    Authorization: 'Bearer expired.or.invalid.token'
                 }
             });
 
             expect(res.status).toBe(401);
             const body = await res.json();
-            expect(body.error).toBe('Token has expired');
+            expect(body.error).toBe('Invalid or expired token');
         });
     });
 });
