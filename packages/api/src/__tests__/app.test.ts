@@ -117,4 +117,79 @@ describe('API App', () => {
             expect(body.assignee).toBeNull();
         });
     });
+
+    describe('POST /bounties/:id/apply', () => {
+        const bountyId = '11111111-1111-1111-1111-111111111111';
+        const applicantId = '22222222-2222-2222-2222-222222222222';
+        const payload = { 
+            coverLetter: 'I want this',
+            applicantId,
+            estimatedTime: 5,
+            experienceLinks: ['https://github.com/test']
+        };
+
+        it('should return 400 for invalid bounty ID format', async () => {
+            const res = await app.request('/bounties/invalid/apply', {
+                method: 'POST',
+                body: JSON.stringify(payload)
+            });
+            expect(res.status).toBe(400);
+        });
+
+        it('should return 400 if coverLetter is missing', async () => {
+            const res = await app.request(`/bounties/${bountyId}/apply`, {
+                method: 'POST',
+                body: JSON.stringify({ applicantId })
+            });
+            expect(res.status).toBe(400);
+        });
+
+        it('should return 404 if bounty not found', async () => {
+            mockDb.execute.mockResolvedValueOnce({ rows: [] });
+            const res = await app.request(`/bounties/${bountyId}/apply`, {
+                method: 'POST',
+                body: JSON.stringify(payload)
+            });
+            expect(res.status).toBe(404);
+        });
+
+        it('should return 400 if bounty is not open', async () => {
+            mockDb.execute.mockResolvedValueOnce({ rows: [{ status: 'assigned' }] });
+            const res = await app.request(`/bounties/${bountyId}/apply`, {
+                method: 'POST',
+                body: JSON.stringify(payload)
+            });
+            expect(res.status).toBe(400);
+            const body = await res.json();
+            expect(body.error).toContain('no longer open');
+        });
+
+        it('should return 201 and application data on success', async () => {
+            mockDb.execute.mockResolvedValueOnce({ rows: [{ status: 'open' }] }); // check
+            mockDb.execute.mockResolvedValueOnce({ rows: [{ id: 'app-123', ...payload }] }); // insert
+            
+            const res = await app.request(`/bounties/${bountyId}/apply`, {
+                method: 'POST',
+                body: JSON.stringify(payload)
+            });
+            expect(res.status).toBe(201);
+            const body = await res.json();
+            expect(body.id).toBe('app-123');
+        });
+
+        it('should return 400 on duplicate application', async () => {
+            mockDb.execute.mockResolvedValueOnce({ rows: [{ status: 'open' }] }); // check
+            const err = new Error('unique constraint');
+            (err as any).code = '23505';
+            mockDb.execute.mockRejectedValueOnce(err); // insert fail
+            
+            const res = await app.request(`/bounties/${bountyId}/apply`, {
+                method: 'POST',
+                body: JSON.stringify(payload)
+            });
+            expect(res.status).toBe(400);
+            const body = await res.json();
+            expect(body.error).toContain('already applied');
+        });
+    });
 });

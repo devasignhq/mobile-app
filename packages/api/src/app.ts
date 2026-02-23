@@ -135,10 +135,17 @@ export function createApp(deps?: Partial<CreateAppDeps>) {
         }
 
         const body = await c.req.json();
+        // SECURITY: applicantId MUST be derived from auth context in production.
+        // For now, we keep it in body as auth middleware is not yet implemented, 
+        // but we add a TODO to fix this IDOR vulnerability.
         const { coverLetter, estimatedTime, experienceLinks, applicantId } = body;
 
         if (!coverLetter) {
             return c.json({ error: 'coverLetter is required' }, 400);
+        }
+
+        if (!applicantId) {
+            return c.json({ error: 'applicantId is required' }, 400);
         }
 
         const db = deps?.db;
@@ -173,7 +180,8 @@ export function createApp(deps?: Partial<CreateAppDeps>) {
             const result = await db.execute(q);
             return c.json(result.rows[0], 201);
         } catch (err: any) {
-            if (err.message?.includes('unique constraint') || err.code === '23505') {
+            // Use SQLSTATE code for more robust error handling
+            if (err.code === '23505') {
                 return c.json({ error: 'You have already applied for this bounty' }, 400);
             }
             throw err;
