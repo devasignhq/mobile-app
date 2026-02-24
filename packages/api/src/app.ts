@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
 import auth from './routes/auth';
+import bounties from './routes/bounties';
 import { authMiddleware, Variables } from './middleware/auth';
 
 /**
@@ -41,6 +42,7 @@ export function createApp() {
 
     // Protected API Routes
     app.use('/api/*', authMiddleware);
+    app.route('/api/bounties', bounties);
 
     app.post('/api/gemini', async (c) => {
         const user = c.get('user');
