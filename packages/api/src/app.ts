@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
 import auth from './routes/auth';
+import { authMiddleware, Variables } from './middleware/auth';
 
 /**
  * Creates and configures the Hono application with all routes and middleware.
@@ -9,7 +10,7 @@ import auth from './routes/auth';
  * or environment variable validation side effects.
  */
 export function createApp() {
-    const app = new Hono();
+    const app = new Hono<{ Variables: Variables }>();
 
     // Global middleware
     app.use('*', logger());
@@ -38,7 +39,13 @@ export function createApp() {
         return c.json({ status: 'ok' });
     });
 
+    // Protected API Routes
+    app.use('/api/*', authMiddleware);
+
     app.post('/api/gemini', async (c) => {
+        const user = c.get('user');
+        console.log(`[Gemini API] Request from user: ${user.username} (${user.id})`);
+
         const apiKey = process.env.GEMINI_API_KEY;
 
         if (!apiKey) {
