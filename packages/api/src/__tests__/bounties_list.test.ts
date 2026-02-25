@@ -102,6 +102,30 @@ describe('GET /api/bounties', () => {
         expect(db.query.bounties.findMany).toHaveBeenCalled();
     });
 
+    it('should return 400 for invalid status', async () => {
+        const res = await app.request('/api/bounties?status=invalid-status', {
+            headers: {
+                'Authorization': 'Bearer valid.token'
+            }
+        });
+
+        expect(res.status).toBe(400);
+        const body = await res.json();
+        expect(body.error).toContain('Invalid status');
+    });
+
+    it('should return 400 for invalid difficulty', async () => {
+        const res = await app.request('/api/bounties?difficulty=invalid-difficulty', {
+            headers: {
+                'Authorization': 'Bearer valid.token'
+            }
+        });
+
+        expect(res.status).toBe(400);
+        const body = await res.json();
+        expect(body.error).toContain('Invalid difficulty');
+    });
+
     it('should return 400 for invalid cursor', async () => {
         const res = await app.request('/api/bounties?cursor=invalid-base64', {
             headers: {

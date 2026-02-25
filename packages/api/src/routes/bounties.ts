@@ -24,6 +24,18 @@ bountiesRouter.get('/', async (c) => {
         status,
     } = query;
 
+    // Input validation for difficulty and status
+    const allowedDifficulties = ['beginner', 'intermediate', 'advanced'];
+    const allowedStatuses = ['open', 'assigned', 'in_review', 'completed', 'cancelled'];
+
+    if (difficulty && !allowedDifficulties.includes(difficulty)) {
+        return c.json({ error: `Invalid difficulty. Allowed values are: ${allowedDifficulties.join(', ')}` }, 400);
+    }
+
+    if (status && !allowedStatuses.includes(status)) {
+        return c.json({ error: `Invalid status. Allowed values are: ${allowedStatuses.join(', ')}` }, 400);
+    }
+
     let whereClause = undefined;
     const filters = [];
 
@@ -43,12 +55,12 @@ bountiesRouter.get('/', async (c) => {
 
     // Difficulty filter
     if (difficulty) {
-        filters.push(eq(bounties.difficulty, difficulty as any));
+        filters.push(eq(bounties.difficulty, difficulty as "beginner" | "intermediate" | "advanced"));
     }
 
     // Status filter
     if (status) {
-        filters.push(eq(bounties.status, status as any));
+        filters.push(eq(bounties.status, status as "open" | "assigned" | "in_review" | "completed" | "cancelled"));
     }
 
     // Cursor-based pagination logic
