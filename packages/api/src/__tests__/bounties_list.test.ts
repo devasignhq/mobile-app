@@ -126,6 +126,30 @@ describe('GET /api/bounties', () => {
         expect(body.error).toContain('Invalid difficulty');
     });
 
+    it('should return 400 for invalid amount_min', async () => {
+        const res = await app.request('/api/bounties?amount_min=not-a-number', {
+            headers: {
+                'Authorization': 'Bearer valid.token'
+            }
+        });
+
+        expect(res.status).toBe(400);
+        const body = await res.json();
+        expect(body.error).toBe('Invalid amount_min. Must be a number.');
+    });
+
+    it('should return 400 for invalid amount_max', async () => {
+        const res = await app.request('/api/bounties?amount_max=abc', {
+            headers: {
+                'Authorization': 'Bearer valid.token'
+            }
+        });
+
+        expect(res.status).toBe(400);
+        const body = await res.json();
+        expect(body.error).toBe('Invalid amount_max. Must be a number.');
+    });
+
     it('should return 400 for invalid cursor', async () => {
         const res = await app.request('/api/bounties?cursor=invalid-base64', {
             headers: {

@@ -47,9 +47,15 @@ bountiesRouter.get('/', async (c) => {
 
     // Amount range filter
     if (amount_min) {
+        if (isNaN(Number(amount_min))) {
+            return c.json({ error: 'Invalid amount_min. Must be a number.' }, 400);
+        }
         filters.push(gte(bounties.amountUsdc, amount_min));
     }
     if (amount_max) {
+        if (isNaN(Number(amount_max))) {
+            return c.json({ error: 'Invalid amount_max. Must be a number.' }, 400);
+        }
         filters.push(lte(bounties.amountUsdc, amount_max));
     }
 
