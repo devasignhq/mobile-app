@@ -67,6 +67,8 @@ export const bounties = pgTable('bounties', {
         statusDeadlineIdx: index('bounties_status_deadline_idx').on(table.status, table.deadline),
         techTagsGinIdx: index('bounties_tech_tags_gin_idx').using('gin', table.techTags),
         githubIssueIdKey: uniqueIndex('bounties_github_issue_id_key').on(table.githubIssueId),
+        createdAtIdIdx: index('bounties_created_at_id_idx').on(desc(table.createdAt), desc(table.id)),
+        difficultyIdx: index('bounties_difficulty_idx').on(table.difficulty),
     };
 });
 

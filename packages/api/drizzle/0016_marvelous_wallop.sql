@@ -1,0 +1,2 @@
+CREATE INDEX "bounties_created_at_id_idx" ON "bounties" USING btree ("created_at" desc,"id" desc);--> statement-breakpoint
+CREATE INDEX "bounties_difficulty_idx" ON "bounties" USING btree ("difficulty");
