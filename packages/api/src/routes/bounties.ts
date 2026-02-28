@@ -23,6 +23,122 @@ type RecommendationCacheEntry = {
 };
 
 const recommendationsCache = new Map<string, RecommendationCacheEntry>();
+let recommendationCacheTableReady = false;
+
+function getDbExecute(): ((query: unknown) => Promise<unknown>) | null {
+    const execute = (db as unknown as { execute?: (query: unknown) => Promise<unknown> }).execute;
+    return typeof execute === 'function' ? execute : null;
+}
+
+async function ensureRecommendationCacheTable(): Promise<boolean> {
+    const execute = getDbExecute();
+    if (!execute) return false;
+    if (recommendationCacheTableReady) return true;
+
+    try {
+        await execute(sql`
+            CREATE TABLE IF NOT EXISTS recommendation_cache (
+                cache_key TEXT PRIMARY KEY,
+                tech_key TEXT NOT NULL,
+                expires_at TIMESTAMPTZ NOT NULL,
+                payload JSONB NOT NULL,
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        `);
+        await execute(sql`
+            CREATE INDEX IF NOT EXISTS recommendation_cache_expires_idx
+            ON recommendation_cache (expires_at)
+        `);
+        recommendationCacheTableReady = true;
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+function rowFromExecuteResult(result: unknown): Record<string, unknown> | null {
+    const rows = (result as { rows?: Record<string, unknown>[] } | null)?.rows;
+    return Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
+}
+
+async function getCachedRecommendations(cacheKey: string, techKey: string, now: number): Promise<RecommendationCacheEntry | null> {
+    const execute = getDbExecute();
+    const supportsDistributedCache = execute && await ensureRecommendationCacheTable();
+
+    if (supportsDistributedCache) {
+        try {
+            await execute(sql`DELETE FROM recommendation_cache WHERE expires_at <= NOW()`);
+            const result = await execute(sql`
+                SELECT tech_key, expires_at, payload
+                FROM recommendation_cache
+                WHERE cache_key = ${cacheKey}
+                LIMIT 1
+            `);
+            const row = rowFromExecuteResult(result);
+            if (!row) return null;
+
+            const expiresAtRaw = row.expires_at;
+            const expiresAtMs = expiresAtRaw instanceof Date
+                ? expiresAtRaw.getTime()
+                : new Date(String(expiresAtRaw)).getTime();
+
+            if (!Number.isFinite(expiresAtMs) || expiresAtMs <= now) return null;
+            if (String(row.tech_key ?? '') !== techKey) return null;
+
+            const payload = row.payload as RecommendedBounty[] | string | undefined;
+            const data = typeof payload === 'string'
+                ? JSON.parse(payload) as RecommendedBounty[]
+                : (payload ?? []);
+
+            if (!Array.isArray(data)) return null;
+            return {
+                expiresAt: expiresAtMs,
+                techKey,
+                data,
+            };
+        } catch {
+            // Fall through to in-memory cache on any distributed-cache failure.
+        }
+    }
+
+    clearExpiredRecommendationCache(now);
+    const cached = recommendationsCache.get(cacheKey);
+    if (!cached || cached.expiresAt <= now || cached.techKey !== techKey) {
+        return null;
+    }
+    return cached;
+}
+
+async function setCachedRecommendations(cacheKey: string, entry: RecommendationCacheEntry): Promise<void> {
+    const execute = getDbExecute();
+    const supportsDistributedCache = execute && await ensureRecommendationCacheTable();
+
+    if (supportsDistributedCache) {
+        try {
+            await execute(sql`
+                INSERT INTO recommendation_cache (cache_key, tech_key, expires_at, payload, updated_at)
+                VALUES (
+                    ${cacheKey},
+                    ${entry.techKey},
+                    ${new Date(entry.expiresAt)},
+                    ${JSON.stringify(entry.data)}::jsonb,
+                    NOW()
+                )
+                ON CONFLICT (cache_key)
+                DO UPDATE SET
+                    tech_key = EXCLUDED.tech_key,
+                    expires_at = EXCLUDED.expires_at,
+                    payload = EXCLUDED.payload,
+                    updated_at = NOW()
+            `);
+            return;
+        } catch {
+            // Fall back to in-memory cache if distributed cache write fails.
+        }
+    }
+
+    recommendationsCache.set(cacheKey, entry);
+}
 
 function normalizeTags(input: unknown): string[] {
     if (!Array.isArray(input)) return [];
@@ -78,6 +194,7 @@ function clearExpiredRecommendationCache(now: number): void {
 
 export function clearRecommendationsCacheForTests(): void {
     recommendationsCache.clear();
+    recommendationCacheTableReady = false;
 }
 
 /**
@@ -224,10 +341,9 @@ bountiesRouter.get('/recommended', async (c) => {
     const techKey = normalizedUserTags.join('|');
     const cacheKey = user.id;
     const now = Date.now();
-    clearExpiredRecommendationCache(now);
 
-    const cached = recommendationsCache.get(cacheKey);
-    if (cached && cached.expiresAt > now && cached.techKey === techKey) {
+    const cached = await getCachedRecommendations(cacheKey, techKey, now);
+    if (cached) {
         return c.json({
             data: cached.data.slice(0, limit),
             meta: {
@@ -261,7 +377,7 @@ bountiesRouter.get('/recommended', async (c) => {
             return Number(b.amountUsdc) - Number(a.amountUsdc);
         });
 
-    recommendationsCache.set(cacheKey, {
+    await setCachedRecommendations(cacheKey, {
         expiresAt: now + RECOMMENDATION_CACHE_TTL_MS,
         techKey,
         data: ranked,
