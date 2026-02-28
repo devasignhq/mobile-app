@@ -2,10 +2,81 @@ import { Hono } from 'hono';
 import { Variables } from '../middleware/auth';
 import { ensureBountyCreator, ensureBountyAssignee } from '../middleware/resource-auth';
 import { db } from '../db';
-import { bounties } from '../db/schema';
+import { bounties, users } from '../db/schema';
 import { eq, and, gte, lte, sql, desc, or, lt } from 'drizzle-orm';
 
 const bountiesRouter = new Hono<{ Variables: Variables }>();
+const RECOMMENDATION_CACHE_TTL_MS = 15 * 60 * 1000;
+const RECOMMENDATION_POOL_SIZE = 200;
+
+type RecommendedBounty = typeof bounties.$inferSelect & {
+    relevanceScore: number;
+    matchedTags: string[];
+};
+
+type RecommendationCacheEntry = {
+    expiresAt: number;
+    techKey: string;
+    data: RecommendedBounty[];
+};
+
+const recommendationsCache = new Map<string, RecommendationCacheEntry>();
+
+function normalizeTags(input: unknown): string[] {
+    if (!Array.isArray(input)) return [];
+    return input
+        .filter((tag): tag is string => typeof tag === 'string')
+        .map((tag) => tag.trim().toLowerCase())
+        .filter(Boolean);
+}
+
+function userTagWeights(userTags: string[]): Map<string, number> {
+    const weights = new Map<string, number>();
+    for (let i = 0; i < userTags.length; i++) {
+        const tag = userTags[i];
+        if (!weights.has(tag)) {
+            // Earlier tags are weighted higher.
+            weights.set(tag, 1 / (i + 1));
+        }
+    }
+    return weights;
+}
+
+function scoreBounty(userWeights: Map<string, number>, bountyTags: string[]): { relevanceScore: number; matchedTags: string[] } {
+    if (bountyTags.length === 0 || userWeights.size === 0) {
+        return { relevanceScore: 0, matchedTags: [] };
+    }
+
+    let rawScore = 0;
+    let maxScore = 0;
+    const matchedTags: string[] = [];
+
+    for (let i = 0; i < bountyTags.length; i++) {
+        const tag = bountyTags[i];
+        const tagWeight = 1 / (i + 1);
+        maxScore += tagWeight * 3;
+
+        const userWeight = userWeights.get(tag);
+        if (userWeight !== undefined) {
+            matchedTags.push(tag);
+            // Combines bounty-tag importance and user-tag importance.
+            rawScore += tagWeight * (1 + userWeight * 2);
+        }
+    }
+
+    const relevanceScore = maxScore > 0 ? Math.round((rawScore / maxScore) * 100) : 0;
+    return { relevanceScore, matchedTags };
+}
+
+function clearExpiredRecommendationCache(now: number): void {
+    for (const [key, entry] of recommendationsCache.entries()) {
+        if (entry.expiresAt <= now) recommendationsCache.delete(key);
+    }
+}
+
+export function clearRecommendationsCacheForTests(): void {
+    recommendationsCache.clear();
+}
 
 /**
  * GET /api/bounties
@@ -118,6 +189,89 @@ bountiesRouter.get('/', async (c) => {
             next_cursor: nextCursor,
             has_more: hasMore,
             count: data.length,
+        },
+    });
+});
+
+/**
+ * GET /api/bounties/recommended
+ * Personalized bounty recommendations for authenticated user.
+ */
+bountiesRouter.get('/recommended', async (c) => {
+    const user = c.get('user');
+    const query = c.req.query();
+    const limit = Math.min(parseInt(query.limit || '10'), 50);
+
+    if (isNaN(limit) || limit < 1) {
+        return c.json({ error: 'Invalid limit. Must be a positive integer.' }, 400);
+    }
+
+    const userProfile = await db.query.users.findFirst({
+        where: eq(users.id, user.id),
+        columns: {
+            id: true,
+            techStack: true,
+        },
+    });
+
+    if (!userProfile) {
+        return c.json({ error: 'User not found' }, 404);
+    }
+
+    const normalizedUserTags = normalizeTags(userProfile.techStack);
+    const techKey = normalizedUserTags.join('|');
+    const cacheKey = user.id;
+    const now = Date.now();
+    clearExpiredRecommendationCache(now);
+
+    const cached = recommendationsCache.get(cacheKey);
+    if (cached && cached.expiresAt > now && cached.techKey === techKey) {
+        return c.json({
+            data: cached.data.slice(0, limit),
+            meta: {
+                count: Math.min(limit, cached.data.length),
+                limit,
+                cached: true,
+                cache_ttl_seconds: Math.ceil((cached.expiresAt - now) / 1000),
+            },
+        });
+    }
+
+    const openBounties = await db.query.bounties.findMany({
+        where: eq(bounties.status, 'open'),
+        limit: RECOMMENDATION_POOL_SIZE,
+        orderBy: [desc(bounties.createdAt)],
+    });
+
+    const weights = userTagWeights(normalizedUserTags);
+    const ranked = openBounties
+        .map((bounty) => {
+            const bountyTags = normalizeTags(bounty.techTags);
+            const scored = scoreBounty(weights, bountyTags);
+            return {
+                ...bounty,
+                relevanceScore: scored.relevanceScore,
+                matchedTags: scored.matchedTags,
+            };
+        })
+        .sort((a, b) => {
+            if (b.relevanceScore !== a.relevanceScore) return b.relevanceScore - a.relevanceScore;
+            return Number(b.amountUsdc) - Number(a.amountUsdc);
+        });
+
+    recommendationsCache.set(cacheKey, {
+        expiresAt: now + RECOMMENDATION_CACHE_TTL_MS,
+        techKey,
+        data: ranked,
+    });
+
+    return c.json({
+        data: ranked.slice(0, limit),
+        meta: {
+            count: Math.min(limit, ranked.length),
+            limit,
+            cached: false,
+            cache_ttl_seconds: Math.floor(RECOMMENDATION_CACHE_TTL_MS / 1000),
         },
     });
 });
