@@ -192,6 +192,9 @@ function clearExpiredRecommendationCache(now: number): void {
     }
 }
 
+// TODO: Add a separate out-of-band process (e.g. cron job) to periodically
+// run: DELETE FROM recommendation_cache WHERE expires_at <= NOW();
+
 export function clearRecommendationsCacheForTests(): void {
     recommendationsCache.clear();
     recommendationCacheTableReady = false;
