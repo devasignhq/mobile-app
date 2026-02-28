@@ -51,7 +51,7 @@ async function ensureRecommendationCacheTable(): Promise<boolean> {
         `);
         recommendationCacheTableReady = true;
         return true;
-    } catch {
+     } catch (e) { console.error("Recommendation cache error:", e);
         return false;
     }
 }
@@ -67,7 +67,7 @@ async function getCachedRecommendations(cacheKey: string, techKey: string, now: 
 
     if (supportsDistributedCache) {
         try {
-            await execute(sql`DELETE FROM recommendation_cache WHERE expires_at <= NOW()`);
+            // Cache cleanup moved out of read path per performance review
             const result = await execute(sql`
                 SELECT tech_key, expires_at, payload
                 FROM recommendation_cache
@@ -96,7 +96,7 @@ async function getCachedRecommendations(cacheKey: string, techKey: string, now: 
                 techKey,
                 data,
             };
-        } catch {
+         } catch (e) { console.error("Recommendation cache error:", e);
             // Fall through to in-memory cache on any distributed-cache failure.
         }
     }
@@ -132,7 +132,7 @@ async function setCachedRecommendations(cacheKey: string, entry: RecommendationC
                     updated_at = NOW()
             `);
             return;
-        } catch {
+         } catch (e) { console.error("Recommendation cache error:", e);
             // Fall back to in-memory cache if distributed cache write fails.
         }
     }
