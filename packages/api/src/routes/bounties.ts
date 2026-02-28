@@ -8,6 +8,8 @@ import { eq, and, gte, lte, sql, desc, or, lt } from 'drizzle-orm';
 const bountiesRouter = new Hono<{ Variables: Variables }>();
 const RECOMMENDATION_CACHE_TTL_MS = 15 * 60 * 1000;
 const RECOMMENDATION_POOL_SIZE = 200;
+const USER_WEIGHT_MULTIPLIER = 2;
+const MAX_SCORE_BASE_MULTIPLIER = 1 + USER_WEIGHT_MULTIPLIER;
 
 type RecommendedBounty = typeof bounties.$inferSelect & {
     relevanceScore: number;
@@ -54,13 +56,13 @@ function scoreBounty(userWeights: Map<string, number>, bountyTags: string[]): { 
     for (let i = 0; i < bountyTags.length; i++) {
         const tag = bountyTags[i];
         const tagWeight = 1 / (i + 1);
-        maxScore += tagWeight * 3;
+        maxScore += tagWeight * MAX_SCORE_BASE_MULTIPLIER;
 
         const userWeight = userWeights.get(tag);
         if (userWeight !== undefined) {
             matchedTags.push(tag);
             // Combines bounty-tag importance and user-tag importance.
-            rawScore += tagWeight * (1 + userWeight * 2);
+            rawScore += tagWeight * (1 + userWeight * USER_WEIGHT_MULTIPLIER);
         }
     }
 
