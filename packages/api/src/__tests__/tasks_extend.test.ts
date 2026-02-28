@@ -118,7 +118,7 @@ describe('POST /api/tasks/:bountyId/extend', () => {
         expect(db.insert).not.toHaveBeenCalled();
     });
 
-    it('returns 409 when there is already an active pending request', async () => {
+    it('returns 409 when there is already an active pending request on the bounty', async () => {
         vi.mocked(db.query.bounties.findFirst).mockResolvedValue({
             id: 'bounty-1',
             assigneeId: 'test-user-id',

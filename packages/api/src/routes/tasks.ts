@@ -61,7 +61,6 @@ tasksRouter.post('/:bountyId/extend', async (c) => {
     const existingPending = await db.query.extensionRequests.findFirst({
         where: and(
             eq(extensionRequests.bountyId, bountyId),
-            eq(extensionRequests.developerId, user.id),
             eq(extensionRequests.status, 'pending')
         ),
         columns: {
