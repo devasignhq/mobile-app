@@ -2,8 +2,8 @@ import { Hono } from 'hono';
 import { Variables } from '../middleware/auth';
 import { ensureBountyCreator, ensureBountyAssignee } from '../middleware/resource-auth';
 import { db } from '../db';
-import { bounties } from '../db/schema';
-import { eq, and, gte, lte, sql, desc, or, lt } from 'drizzle-orm';
+import { bounties, users, applications } from '../db/schema';
+import { eq, and, gte, lte, sql, desc, or, lt, count } from 'drizzle-orm';
 
 const bountiesRouter = new Hono<{ Variables: Variables }>();
 
@@ -124,10 +124,12 @@ bountiesRouter.get('/', async (c) => {
 
 /**
  * GET /api/bounties/:id
- * Publicly accessible route to get bounty details
+ * Returns full bounty details including creator info (username, avatar),
+ * application count, assignee info if assigned, and current status.
  */
 bountiesRouter.get('/:id', async (c) => {
     const id = c.req.param('id');
+
     const bounty = await db.query.bounties.findFirst({
         where: eq(bounties.id, id),
     });
@@ -136,7 +138,33 @@ bountiesRouter.get('/:id', async (c) => {
         return c.json({ error: 'Bounty not found' }, 404);
     }
 
-    return c.json(bounty);
+    // Fetch creator, assignee, and application count in parallel
+    const [creator, assigneeResult, appCount] = await Promise.all([
+        db.query.users.findFirst({
+            where: eq(users.id, bounty.creatorId),
+            columns: { id: true, username: true, avatarUrl: true },
+        }),
+        bounty.assigneeId
+            ? db.query.users.findFirst({
+                  where: eq(users.id, bounty.assigneeId),
+                  columns: { id: true, username: true, avatarUrl: true },
+              })
+            : Promise.resolve(null),
+        db
+            .select({ count: count() })
+            .from(applications)
+            .where(eq(applications.bountyId, id)),
+    ]);
+
+    const assignee = assigneeResult ?? null;
+    const applicationCount = Number(appCount[0]?.count ?? 0);
+
+    return c.json({
+        ...bounty,
+        creator: creator ?? null,
+        assignee,
+        application_count: applicationCount,
+    });
 });
 
 /**
