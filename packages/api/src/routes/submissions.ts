@@ -146,4 +146,101 @@ submissionsRouter.post('/:id/dispute', async (c) => {
     }, 201);
 });
 
+/**
+ * POST /api/submissions/:id/approve
+ * Allows the bounty creator to approve a submission.
+ * Transitions the submission to 'approved' and the bounty to 'completed'.
+ * Payment flow is initiated (placeholder for actual Stellar payout).
+ */
+submissionsRouter.post('/:id/approve', async (c) => {
+    const user = c.get('user');
+    const submissionId = c.req.param('id');
+
+    const submission = await db.query.submissions.findFirst({
+        where: eq(submissions.id, submissionId),
+        columns: { id: true, bountyId: true, developerId: true, status: true },
+    });
+
+    if (!submission) {
+        return c.json({ error: 'Submission not found' }, 404);
+    }
+
+    const bounty = await db.query.bounties.findFirst({
+        where: eq(bounties.id, submission.bountyId),
+        columns: { id: true, creatorId: true },
+    });
+
+    if (bounty?.creatorId !== user.id) {
+        return c.json({ error: 'Forbidden' }, 403);
+    }
+
+    if (submission.status !== 'pending') {
+        return c.json({ error: 'Only pending submissions can be approved' }, 422);
+    }
+
+    // Transition submission → approved, bounty → completed
+    await db.update(submissions)
+        .set({ status: 'approved', updatedAt: new Date() })
+        .where(eq(submissions.id, submissionId));
+
+    await db.update(bounties)
+        .set({ status: 'completed', updatedAt: new Date() })
+        .where(eq(bounties.id, submission.bountyId));
+
+    // TODO: Trigger Stellar payout to submission.developerId
+
+    return c.json({ success: true, message: 'Submission approved and payment initiated' });
+});
+
+/**
+ * POST /api/submissions/:id/reject
+ * Allows the bounty creator to reject a submission.
+ * Requires a rejection_reason. Transitions the submission to 'rejected'
+ * and the bounty back to 'assigned' so the developer can revise.
+ */
+submissionsRouter.post('/:id/reject', async (c) => {
+    const user = c.get('user');
+    const submissionId = c.req.param('id');
+
+    const submission = await db.query.submissions.findFirst({
+        where: eq(submissions.id, submissionId),
+        columns: { id: true, bountyId: true, status: true },
+    });
+
+    if (!submission) {
+        return c.json({ error: 'Submission not found' }, 404);
+    }
+
+    const bounty = await db.query.bounties.findFirst({
+        where: eq(bounties.id, submission.bountyId),
+        columns: { id: true, creatorId: true },
+    });
+
+    if (bounty?.creatorId !== user.id) {
+        return c.json({ error: 'Forbidden' }, 403);
+    }
+
+    if (submission.status !== 'pending') {
+        return c.json({ error: 'Only pending submissions can be rejected' }, 422);
+    }
+
+    const body = await c.req.json();
+    const { rejection_reason } = body;
+
+    if (typeof rejection_reason !== 'string' || rejection_reason.trim() === '') {
+        return c.json({ error: 'rejection_reason is required and must be a non-empty string' }, 400);
+    }
+
+    // Transition submission → rejected, bounty → assigned (developer can revise)
+    await db.update(submissions)
+        .set({ status: 'rejected', rejectionReason: rejection_reason.trim(), updatedAt: new Date() })
+        .where(eq(submissions.id, submissionId));
+
+    await db.update(bounties)
+        .set({ status: 'assigned', updatedAt: new Date() })
+        .where(eq(bounties.id, submission.bountyId));
+
+    return c.json({ success: true, message: 'Submission rejected' });
+});
+
 export default submissionsRouter;
