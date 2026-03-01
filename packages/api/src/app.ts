@@ -4,6 +4,7 @@ import { logger } from 'hono/logger';
 import auth from './routes/auth';
 import bounties from './routes/bounties';
 import submissions from './routes/submissions';
+import disputes from './routes/disputes';
 import { authMiddleware, Variables } from './middleware/auth';
 
 /**
@@ -45,6 +46,7 @@ export function createApp() {
     app.use('/api/*', authMiddleware);
     app.route('/api/bounties', bounties);
     app.route('/api/submissions', submissions);
+    app.route('/api/disputes', disputes);
 
     app.post('/api/gemini', async (c) => {
         const user = c.get('user');
