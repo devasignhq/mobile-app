@@ -138,28 +138,26 @@ bountiesRouter.get('/:id', async (c) => {
         return c.json({ error: 'Bounty not found' }, 404);
     }
 
-    // Fetch creator info
-    const creator = await db.query.users.findFirst({
-        where: eq(users.id, bounty.creatorId),
-        columns: { id: true, username: true, avatarUrl: true },
-    });
-
-    // Fetch assignee info if assigned
-    let assignee: { id: string; username: string | null; avatarUrl: string | null } | null = null;
-    if (bounty.assigneeId) {
-        assignee = await db.query.users.findFirst({
-            where: eq(users.id, bounty.assigneeId),
+    // Fetch creator, assignee, and application count in parallel
+    const [creator, assigneeResult, appCount] = await Promise.all([
+        db.query.users.findFirst({
+            where: eq(users.id, bounty.creatorId),
             columns: { id: true, username: true, avatarUrl: true },
-        }) ?? null;
-    }
+        }),
+        bounty.assigneeId
+            ? db.query.users.findFirst({
+                  where: eq(users.id, bounty.assigneeId),
+                  columns: { id: true, username: true, avatarUrl: true },
+              })
+            : Promise.resolve(null),
+        db
+            .select({ count: count() })
+            .from(applications)
+            .where(eq(applications.bountyId, id)),
+    ]);
 
-    // Count applications for this bounty
-    const [appCountResult] = await db
-        .select({ count: count() })
-        .from(applications)
-        .where(eq(applications.bountyId, id));
-
-    const applicationCount = Number(appCountResult?.count ?? 0);
+    const assignee = assigneeResult ?? null;
+    const applicationCount = Number(appCount[0]?.count ?? 0);
 
     return c.json({
         ...bounty,
