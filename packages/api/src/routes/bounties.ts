@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { Variables } from '../middleware/auth';
 import { ensureBountyCreator, ensureBountyAssignee } from '../middleware/resource-auth';
 import { db } from '../db';
-import { bounties } from '../db/schema';
+import { bounties, applications } from '../db/schema';
 import { eq, and, gte, lte, sql, desc, or, lt } from 'drizzle-orm';
 
 const bountiesRouter = new Hono<{ Variables: Variables }>();
@@ -174,6 +174,90 @@ bountiesRouter.post('/:id/complete', ensureBountyAssignee('id'), async (c) => {
         .where(eq(bounties.id, id));
 
     return c.json({ success: true, message: 'Bounty submitted for review' });
+});
+
+/**
+ * POST /api/bounties/:id/apply
+ * Submit an application for a bounty. Only one application per user per bounty.
+ * Bounty must be in 'open' status. Requires cover_letter, estimated_time, and optional experience_links.
+ * Closes #23.
+ */
+bountiesRouter.post('/:id/apply', async (c) => {
+    const userId = c.get('user').id;
+    const bountyId = c.req.param('id');
+
+    // Validate bounty exists and is open
+    const bounty = await db.query.bounties.findFirst({
+        where: eq(bounties.id, bountyId),
+    });
+
+    if (!bounty) {
+        return c.json({ error: 'Bounty not found' }, 404);
+    }
+
+    if (bounty.status !== 'open') {
+        return c.json({ error: 'Bounty is not open for applications' }, 409);
+    }
+
+    // Prevent creator from applying to their own bounty
+    if (bounty.creatorId === userId) {
+        return c.json({ error: 'You cannot apply to your own bounty' }, 403);
+    }
+
+    // Parse and validate request body
+    let body: { cover_letter: string; estimated_time: number; experience_links?: string[] };
+    try {
+        body = await c.req.json();
+    } catch {
+        return c.json({ error: 'Invalid JSON body' }, 400);
+    }
+
+    const { cover_letter, estimated_time, experience_links } = body;
+
+    if (!cover_letter || typeof cover_letter !== 'string' || cover_letter.trim().length === 0) {
+        return c.json({ error: 'cover_letter is required and must be a non-empty string' }, 400);
+    }
+
+    if (!estimated_time || typeof estimated_time !== 'number' || estimated_time <= 0 || !Number.isInteger(estimated_time)) {
+        return c.json({ error: 'estimated_time is required and must be a positive integer (hours)' }, 400);
+    }
+
+    if (experience_links !== undefined) {
+        if (!Array.isArray(experience_links) || experience_links.some(l => typeof l !== 'string')) {
+            return c.json({ error: 'experience_links must be an array of strings' }, 400);
+        }
+    }
+
+    // Create the application — rely on the unique constraint (bounty_id, applicant_id)
+    // to atomically prevent duplicates rather than a non-atomic check-then-insert.
+    try {
+        const [created] = await db.insert(applications).values({
+            bountyId,
+            applicantId: userId,
+            coverLetter: cover_letter.trim(),
+            estimatedTime: estimated_time,
+            experienceLinks: experience_links ?? [],
+            status: 'pending',
+        }).returning();
+
+        return c.json({
+            id: created.id,
+            bounty_id: created.bountyId,
+            applicant_id: created.applicantId,
+            cover_letter: created.coverLetter,
+            estimated_time: created.estimatedTime,
+            experience_links: created.experienceLinks,
+            status: created.status,
+            created_at: created.createdAt,
+        }, 201);
+    } catch (error: any) {
+        // PostgreSQL unique violation — user already applied to this bounty
+        if (error?.code === '23505') {
+            return c.json({ error: 'You have already applied to this bounty' }, 409);
+        }
+        console.error(`Error creating application for bounty ${bountyId}:`, error);
+        return c.json({ error: 'Could not process application' }, 500);
+    }
 });
 
 export default bountiesRouter;
