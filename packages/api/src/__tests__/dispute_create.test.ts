@@ -127,4 +127,19 @@ describe('POST /api/submissions/:id/dispute', () => {
         });
         expect(res.status).toBe(400);
     });
+
+    it('should return 400 for invalid evidence_links', async () => {
+        vi.mocked(verify).mockResolvedValue({ sub: DEVELOPER_ID, username: 'dev', exp: 9999999999 });
+        vi.mocked(db.query.submissions.findFirst).mockResolvedValue(mockRejectedSubmission as any);
+        vi.mocked(db.query.disputes.findFirst).mockResolvedValue(undefined);
+
+        const res = await app.request(`/api/submissions/${SUB_ID}/dispute`, {
+            method: 'POST',
+            headers: { Authorization: 'Bearer valid.token', 'Content-Type': 'application/json' },
+            body: JSON.stringify({ reason: 'test', evidence_links: [123] }), // Using a number instead of a string
+        });
+        expect(res.status).toBe(400);
+        const body = await res.json();
+        expect(body.error).toContain('evidence_links must be an array of strings');
+    });
 });
