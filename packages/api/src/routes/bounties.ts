@@ -2,8 +2,8 @@ import { Hono } from 'hono';
 import { Variables } from '../middleware/auth';
 import { ensureBountyCreator, ensureBountyAssignee } from '../middleware/resource-auth';
 import { db } from '../db';
-import { bounties } from '../db/schema';
-import { eq, and, gte, lte, sql, desc, or, lt } from 'drizzle-orm';
+import { bounties, users, applications } from '../db/schema';
+import { eq, and, gte, lte, sql, desc, or, lt, count } from 'drizzle-orm';
 
 const bountiesRouter = new Hono<{ Variables: Variables }>();
 
@@ -124,10 +124,12 @@ bountiesRouter.get('/', async (c) => {
 
 /**
  * GET /api/bounties/:id
- * Publicly accessible route to get bounty details
+ * Returns full bounty details including creator info (username, avatar),
+ * application count, assignee info if assigned, and current status.
  */
 bountiesRouter.get('/:id', async (c) => {
     const id = c.req.param('id');
+
     const bounty = await db.query.bounties.findFirst({
         where: eq(bounties.id, id),
     });
@@ -136,7 +138,35 @@ bountiesRouter.get('/:id', async (c) => {
         return c.json({ error: 'Bounty not found' }, 404);
     }
 
-    return c.json(bounty);
+    // Fetch creator info
+    const creator = await db.query.users.findFirst({
+        where: eq(users.id, bounty.creatorId),
+        columns: { id: true, username: true, avatarUrl: true },
+    });
+
+    // Fetch assignee info if assigned
+    let assignee: { id: string; username: string | null; avatarUrl: string | null } | null = null;
+    if (bounty.assigneeId) {
+        assignee = await db.query.users.findFirst({
+            where: eq(users.id, bounty.assigneeId),
+            columns: { id: true, username: true, avatarUrl: true },
+        }) ?? null;
+    }
+
+    // Count applications for this bounty
+    const [appCountResult] = await db
+        .select({ count: count() })
+        .from(applications)
+        .where(eq(applications.bountyId, id));
+
+    const applicationCount = Number(appCountResult?.count ?? 0);
+
+    return c.json({
+        ...bounty,
+        creator: creator ?? null,
+        assignee,
+        application_count: applicationCount,
+    });
 });
 
 /**
