@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { Variables } from '../middleware/auth';
 import { ensureBountyCreator, ensureBountyAssignee } from '../middleware/resource-auth';
 import { db } from '../db';
-import { bounties } from '../db/schema';
+import { bounties, users, applications } from '../db/schema';
 import { eq, and, gte, lte, sql, desc, or, lt } from 'drizzle-orm';
 
 const bountiesRouter = new Hono<{ Variables: Variables }>();
@@ -136,7 +136,45 @@ bountiesRouter.get('/:id', async (c) => {
         return c.json({ error: 'Bounty not found' }, 404);
     }
 
-    return c.json(bounty);
+    const [creator, assignee, applicationCount] = await Promise.all([
+        db.query.users.findFirst({
+            where: eq(users.id, bounty.creatorId),
+            columns: {
+                username: true,
+                avatarUrl: true,
+            },
+        }),
+        bounty.assigneeId
+            ? db.query.users.findFirst({
+                where: eq(users.id, bounty.assigneeId),
+                columns: {
+                    username: true,
+                    avatarUrl: true,
+                },
+            })
+            : Promise.resolve(null),
+        db
+            .select({ count: sql<number>`count(*)` })
+            .from(applications)
+            .where(eq(applications.bountyId, id)),
+    ]);
+
+    return c.json({
+        ...bounty,
+        creator: creator
+            ? {
+                username: creator.username,
+                avatar: creator.avatarUrl,
+            }
+            : null,
+        assignee: assignee
+            ? {
+                username: assignee.username,
+                avatar: assignee.avatarUrl,
+            }
+            : null,
+        applicationCount: Number(applicationCount[0]?.count ?? 0),
+    });
 });
 
 /**
