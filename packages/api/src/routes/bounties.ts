@@ -228,38 +228,36 @@ bountiesRouter.post('/:id/apply', async (c) => {
         }
     }
 
-    // Check for duplicate application (unique constraint on bounty_id + applicant_id)
-    const existing = await db.query.applications.findFirst({
-        where: and(
-            eq(applications.bountyId, bountyId),
-            eq(applications.applicantId, userId),
-        ),
-    });
+    // Create the application — rely on the unique constraint (bounty_id, applicant_id)
+    // to atomically prevent duplicates rather than a non-atomic check-then-insert.
+    try {
+        const [created] = await db.insert(applications).values({
+            bountyId,
+            applicantId: userId,
+            coverLetter: cover_letter.trim(),
+            estimatedTime: estimated_time,
+            experienceLinks: experience_links ?? [],
+            status: 'pending',
+        }).returning();
 
-    if (existing) {
-        return c.json({ error: 'You have already applied to this bounty' }, 409);
+        return c.json({
+            id: created.id,
+            bounty_id: created.bountyId,
+            applicant_id: created.applicantId,
+            cover_letter: created.coverLetter,
+            estimated_time: created.estimatedTime,
+            experience_links: created.experienceLinks,
+            status: created.status,
+            created_at: created.createdAt,
+        }, 201);
+    } catch (error: any) {
+        // PostgreSQL unique violation — user already applied to this bounty
+        if (error?.code === '23505') {
+            return c.json({ error: 'You have already applied to this bounty' }, 409);
+        }
+        console.error(`Error creating application for bounty ${bountyId}:`, error);
+        return c.json({ error: 'Could not process application' }, 500);
     }
-
-    // Create the application
-    const [created] = await db.insert(applications).values({
-        bountyId,
-        applicantId: userId,
-        coverLetter: cover_letter.trim(),
-        estimatedTime: estimated_time,
-        experienceLinks: experience_links ?? [],
-        status: 'pending',
-    }).returning();
-
-    return c.json({
-        id: created.id,
-        bounty_id: created.bountyId,
-        applicant_id: created.applicantId,
-        cover_letter: created.coverLetter,
-        estimated_time: created.estimatedTime,
-        experience_links: created.experienceLinks,
-        status: created.status,
-        created_at: created.createdAt,
-    }, 201);
 });
 
 export default bountiesRouter;

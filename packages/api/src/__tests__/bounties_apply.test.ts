@@ -143,7 +143,8 @@ describe('POST /api/bounties/:id/apply', () => {
 
     it('should return 409 if already applied', async () => {
         vi.mocked(db.query.bounties.findFirst).mockResolvedValue(openBounty as any);
-        vi.mocked(db.query.applications.findFirst).mockResolvedValue({ id: 'existing' } as any);
+        const uniqueViolation = Object.assign(new Error('duplicate key value violates unique constraint'), { code: '23505' });
+        vi.mocked(db.insert).mockReturnValue({ values: () => ({ returning: vi.fn().mockRejectedValue(uniqueViolation) }) } as any);
 
         const res = await app.request(`/api/bounties/${TEST_BOUNTY_ID}/apply`, {
             method: 'POST',
