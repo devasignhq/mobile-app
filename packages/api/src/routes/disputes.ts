@@ -62,18 +62,20 @@ disputesRouter.post('/:id/resolve', async (c) => {
     }
 
     if (resolution === 'resolved_developer') {
-        // Developer wins: approve submission, complete bounty, payout
-        await db.update(disputes)
-            .set({ status: 'resolved', updatedAt: new Date() })
-            .where(eq(disputes.id, disputeId));
+        // Developer wins: approve submission, complete bounty, payout (atomic)
+        await db.transaction(async (tx) => {
+            await tx.update(disputes)
+                .set({ status: 'resolved', updatedAt: new Date() })
+                .where(eq(disputes.id, disputeId));
 
-        await db.update(submissions)
-            .set({ status: 'approved', updatedAt: new Date() })
-            .where(eq(submissions.id, dispute.submissionId));
+            await tx.update(submissions)
+                .set({ status: 'approved', updatedAt: new Date() })
+                .where(eq(submissions.id, dispute.submissionId));
 
-        await db.update(bounties)
-            .set({ status: 'completed', updatedAt: new Date() })
-            .where(eq(bounties.id, submission.bountyId));
+            await tx.update(bounties)
+                .set({ status: 'completed', updatedAt: new Date() })
+                .where(eq(bounties.id, submission.bountyId));
+        });
 
         // TODO: Trigger Stellar payout to submission.developerId
 
@@ -83,18 +85,20 @@ disputesRouter.post('/:id/resolve', async (c) => {
         });
     }
 
-    // resolution === 'resolved_creator': creator wins — reopen bounty
-    await db.update(disputes)
-        .set({ status: 'dismissed', updatedAt: new Date() })
-        .where(eq(disputes.id, disputeId));
+    // resolution === 'resolved_creator': creator wins — reopen bounty (atomic)
+    await db.transaction(async (tx) => {
+        await tx.update(disputes)
+            .set({ status: 'dismissed', updatedAt: new Date() })
+            .where(eq(disputes.id, disputeId));
 
-    await db.update(submissions)
-        .set({ status: 'rejected', updatedAt: new Date() })
-        .where(eq(submissions.id, dispute.submissionId));
+        await tx.update(submissions)
+            .set({ status: 'rejected', updatedAt: new Date() })
+            .where(eq(submissions.id, dispute.submissionId));
 
-    await db.update(bounties)
-        .set({ status: 'open', assigneeId: null, updatedAt: new Date() })
-        .where(eq(bounties.id, submission.bountyId));
+        await tx.update(bounties)
+            .set({ status: 'open', assigneeId: null, updatedAt: new Date() })
+            .where(eq(bounties.id, submission.bountyId));
+    });
 
     return c.json({
         success: true,
