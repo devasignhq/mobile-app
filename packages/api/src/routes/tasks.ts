@@ -112,18 +112,23 @@ tasksRouter.post('/:bountyId/submit', ensureBountyAssignee('bountyId'), async (c
     const supportingLinks: string[] = Array.isArray(supporting_links) ? supporting_links : [];
     const notesStr: string | null = typeof notes === 'string' ? notes.trim() || null : null;
 
-    const [created] = await db.insert(submissions).values({
-        bountyId,
-        developerId: user.id,
-        prUrl: pr_url.trim(),
-        supportingLinks,
-        notes: notesStr,
-        status: 'pending',
-    }).returning({ id: submissions.id });
+    // Insert submission and update bounty status atomically
+    const [created] = await db.transaction(async (tx) => {
+        const rows = await tx.insert(submissions).values({
+            bountyId,
+            developerId: user.id,
+            prUrl: pr_url.trim(),
+            supportingLinks,
+            notes: notesStr,
+            status: 'pending',
+        }).returning({ id: submissions.id });
 
-    await db.update(bounties)
-        .set({ status: 'in_review', updatedAt: new Date() })
-        .where(eq(bounties.id, bountyId));
+        await tx.update(bounties)
+            .set({ status: 'in_review', updatedAt: new Date() })
+            .where(eq(bounties.id, bountyId));
+
+        return rows;
+    });
 
     return c.json({
         success: true,

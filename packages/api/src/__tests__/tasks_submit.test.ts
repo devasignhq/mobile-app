@@ -5,16 +5,18 @@ import { db } from '../db';
 
 vi.mock('hono/jwt', () => ({ verify: vi.fn() }));
 
-vi.mock('../db', () => ({
-    db: {
+vi.mock('../db', () => {
+    const mockDb: any = {
         query: {
             bounties: { findFirst: vi.fn() },
         },
         insert: vi.fn(),
         update: vi.fn(),
         select: vi.fn(),
-    },
-}));
+        transaction: vi.fn().mockImplementation(async (fn: (tx: any) => Promise<any>) => fn(mockDb)),
+    };
+    return { db: mockDb };
+});
 
 const DEVELOPER_ID = 'user-uuid-dev';
 const BOUNTY_ID = 'bounty-uuid-001';
