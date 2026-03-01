@@ -40,7 +40,8 @@ disputesRouter.post('/:id/resolve', async (c) => {
     });
 
     if (!submission) {
-        return c.json({ error: 'Associated submission not found' }, 404);
+        console.error(`Data integrity issue: Dispute ${disputeId} exists but associated submission ${dispute.submissionId} not found.`);
+        return c.json({ error: 'Internal server error: Associated submission not found' }, 500);
     }
 
     const bounty = await db.query.bounties.findFirst({
