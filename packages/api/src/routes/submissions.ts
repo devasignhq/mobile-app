@@ -127,7 +127,11 @@ submissionsRouter.post('/:id/dispute', async (c) => {
         return c.json({ error: 'reason is required and must be a non-empty string' }, 400);
     }
 
-    const evidenceLinks: string[] = Array.isArray(evidence_links) ? evidence_links : [];
+    if (evidence_links !== undefined && (!Array.isArray(evidence_links) || !evidence_links.every(item => typeof item === 'string'))) {
+        return c.json({ error: 'evidence_links must be an array of strings' }, 400);
+    }
+
+    const evidenceLinks: string[] = evidence_links || [];
 
     const [created] = await db.insert(disputes).values({
         submissionId,
