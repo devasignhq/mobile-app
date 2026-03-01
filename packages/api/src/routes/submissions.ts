@@ -178,14 +178,16 @@ submissionsRouter.post('/:id/approve', async (c) => {
         return c.json({ error: 'Only pending submissions can be approved' }, 422);
     }
 
-    // Transition submission → approved, bounty → completed
-    await db.update(submissions)
-        .set({ status: 'approved', updatedAt: new Date() })
-        .where(eq(submissions.id, submissionId));
+    // Transition submission → approved, bounty → completed (atomic)
+    await db.transaction(async (tx) => {
+        await tx.update(submissions)
+            .set({ status: 'approved', updatedAt: new Date() })
+            .where(eq(submissions.id, submissionId));
 
-    await db.update(bounties)
-        .set({ status: 'completed', updatedAt: new Date() })
-        .where(eq(bounties.id, submission.bountyId));
+        await tx.update(bounties)
+            .set({ status: 'completed', updatedAt: new Date() })
+            .where(eq(bounties.id, submission.bountyId));
+    });
 
     // TODO: Trigger Stellar payout to submission.developerId
 
@@ -231,14 +233,16 @@ submissionsRouter.post('/:id/reject', async (c) => {
         return c.json({ error: 'rejection_reason is required and must be a non-empty string' }, 400);
     }
 
-    // Transition submission → rejected, bounty → assigned (developer can revise)
-    await db.update(submissions)
-        .set({ status: 'rejected', rejectionReason: rejection_reason.trim(), updatedAt: new Date() })
-        .where(eq(submissions.id, submissionId));
+    // Transition submission → rejected, bounty → assigned (atomic)
+    await db.transaction(async (tx) => {
+        await tx.update(submissions)
+            .set({ status: 'rejected', rejectionReason: rejection_reason.trim(), updatedAt: new Date() })
+            .where(eq(submissions.id, submissionId));
 
-    await db.update(bounties)
-        .set({ status: 'assigned', updatedAt: new Date() })
-        .where(eq(bounties.id, submission.bountyId));
+        await tx.update(bounties)
+            .set({ status: 'assigned', updatedAt: new Date() })
+            .where(eq(bounties.id, submission.bountyId));
+    });
 
     return c.json({ success: true, message: 'Submission rejected' });
 });
