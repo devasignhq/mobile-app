@@ -2,8 +2,8 @@ import { Hono } from 'hono';
 import { Variables } from '../middleware/auth';
 import { ensureBountyCreator, ensureBountyAssignee } from '../middleware/resource-auth';
 import { db } from '../db';
-import { bounties } from '../db/schema';
-import { eq, and, gte, lte, sql, desc, or, lt } from 'drizzle-orm';
+import { bounties, users, applications } from '../db/schema';
+import { eq, and, gte, lte, sql, desc, or, lt, count } from 'drizzle-orm';
 
 const bountiesRouter = new Hono<{ Variables: Variables }>();
 
@@ -124,19 +124,62 @@ bountiesRouter.get('/', async (c) => {
 
 /**
  * GET /api/bounties/:id
- * Publicly accessible route to get bounty details
+ * Publicly accessible route to get bounty details with creator, assignee, and application info
  */
 bountiesRouter.get('/:id', async (c) => {
     const id = c.req.param('id');
+    
+    // Get bounty with creator and assignee info
     const bounty = await db.query.bounties.findFirst({
         where: eq(bounties.id, id),
+        with: {
+            creator: {
+                columns: {
+                    id: true,
+                    username: true,
+                    avatarUrl: true,
+                },
+            },
+            assignee: {
+                columns: {
+                    id: true,
+                    username: true,
+                    avatarUrl: true,
+                },
+            },
+        },
     });
 
     if (!bounty) {
         return c.json({ error: 'Bounty not found' }, 404);
     }
 
-    return c.json(bounty);
+    // Get application count
+    const applicationCountResult = await db
+        .select({ count: count() })
+        .from(applications)
+        .where(eq(applications.bountyId, id));
+    
+    const applicationCount = applicationCountResult[0]?.count || 0;
+
+    // Build response with enriched data
+    const response = {
+        ...bounty,
+        creator: bounty.creator ? {
+            id: bounty.creator.id,
+            username: bounty.creator.username,
+            avatar: bounty.creator.avatarUrl,
+        } : null,
+        assignee: bounty.assignee ? {
+            id: bounty.assignee.id,
+            username: bounty.assignee.username,
+            avatar: bounty.assignee.avatarUrl,
+        } : null,
+        applicationCount,
+        currentStatus: bounty.status,
+    };
+
+    return c.json(response);
 });
 
 /**
