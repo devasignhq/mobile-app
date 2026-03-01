@@ -14,8 +14,13 @@ vi.mock('../db', () => ({
         query: {
             bounties: {
                 findMany: vi.fn(),
+                findFirst: vi.fn(),
+            },
+            users: {
+                findFirst: vi.fn(),
             },
         },
+        select: vi.fn(),
     },
 }));
 
@@ -161,4 +166,99 @@ describe('GET /api/bounties', () => {
         const body = await res.json();
         expect(body.error).toBe('Invalid cursor');
     });
+
+    it('should return detailed bounty information for GET /api/bounties/:id', async () => {
+        const bountyId = 'bounty-1';
+        vi.mocked(db.query.bounties.findFirst).mockResolvedValue({
+            id: bountyId,
+            title: 'Bounty 1',
+            status: 'open',
+            creatorId: 'creator-1',
+            assigneeId: 'assignee-1',
+        } as any);
+
+        vi.mocked(db.query.users.findFirst)
+            .mockResolvedValueOnce({ username: 'creatorUser', avatarUrl: 'https://avatar/creator.png' } as any)
+            .mockResolvedValueOnce({ username: 'assigneeUser', avatarUrl: 'https://avatar/assignee.png' } as any);
+
+        vi.mocked(db.select as any).mockReturnValue({
+            from: () => ({
+                where: async () => [{ count: 3 }],
+            }),
+        } as any);
+
+        const res = await app.request(`/api/bounties/${bountyId}`, {
+            headers: {
+                'Authorization': 'Bearer valid.token'
+            }
+        });
+
+        expect(res.status).toBe(200);
+        const body = await res.json();
+
+        expect(body.id).toBe(bountyId);
+        expect(body.creator).toEqual({
+            username: 'creatorUser',
+            avatar: 'https://avatar/creator.png',
+        });
+        expect(body.assignee).toEqual({
+            username: 'assigneeUser',
+            avatar: 'https://avatar/assignee.png',
+        });
+        expect(body.applicationCount).toBe(3);
+    });
+
+
+    it('should return null assignee when bounty has no assignee for GET /api/bounties/:id', async () => {
+        const bountyId = 'bounty-no-assignee';
+
+        vi.mocked(db.query.bounties.findFirst).mockResolvedValue({
+            id: bountyId,
+            title: 'Bounty 2',
+            status: 'open',
+            creatorId: 'creator-1',
+            assigneeId: null,
+        } as any);
+
+        vi.mocked(db.query.users.findFirst)
+            .mockResolvedValueOnce({ username: 'creatorUser', avatarUrl: 'https://avatar/creator.png' } as any);
+
+        vi.mocked(db.select as any).mockReturnValue({
+            from: () => ({
+                where: async () => [{ count: 1 }],
+            }),
+        } as any);
+
+        const res = await app.request(`/api/bounties/${bountyId}`, {
+            headers: {
+                'Authorization': 'Bearer valid.token'
+            }
+        });
+
+        expect(res.status).toBe(200);
+        const body = await res.json();
+
+        expect(body.id).toBe(bountyId);
+        expect(body.creator).toEqual({
+            username: 'creatorUser',
+            avatar: 'https://avatar/creator.png',
+        });
+        expect(body.assignee).toBeNull();
+        expect(body.applicationCount).toBe(1);
+    });
+
+    it('should return 404 when bounty is not found for GET /api/bounties/:id', async () => {
+        vi.mocked(db.query.bounties.findFirst).mockResolvedValue(null as any);
+
+        const res = await app.request('/api/bounties/non-existent', {
+            headers: {
+                'Authorization': 'Bearer valid.token'
+            }
+        });
+
+        expect(res.status).toBe(404);
+        const body = await res.json();
+        expect(body.error).toBe('Bounty not found');
+    });
+
 });
