@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { Variables } from '../middleware/auth';
 import { ensureBountyCreator, ensureBountyAssignee } from '../middleware/resource-auth';
 import { db } from '../db';
-import { bounties } from '../db/schema';
+import { bounties, applications, users } from '../db/schema';
 import { eq, and, gte, lte, sql, desc, or, lt } from 'drizzle-orm';
 
 const bountiesRouter = new Hono<{ Variables: Variables }>();
@@ -85,7 +85,7 @@ bountiesRouter.get('/', async (c) => {
                     )
                 )
             );
-        } catch (e) {
+        } catch {
             return c.json({ error: 'Invalid cursor' }, 400);
         }
     }
@@ -136,7 +136,49 @@ bountiesRouter.get('/:id', async (c) => {
         return c.json({ error: 'Bounty not found' }, 404);
     }
 
-    return c.json(bounty);
+    const [applicationCountResult] = await db
+        .select({ count: sql<number>`cast(count(*) as int)` })
+        .from(applications)
+        .where(eq(applications.bountyId, id));
+
+    const [creator] = await db
+        .select({
+            id: users.id,
+            username: users.username,
+            avatarUrl: users.avatarUrl,
+        })
+        .from(users)
+        .where(eq(users.id, bounty.creatorId));
+
+    const [assignee] = bounty.assigneeId
+        ? await db
+            .select({
+                id: users.id,
+                username: users.username,
+                avatarUrl: users.avatarUrl,
+            })
+            .from(users)
+            .where(eq(users.id, bounty.assigneeId))
+        : [null];
+
+    return c.json({
+        ...bounty,
+        creator: creator
+            ? {
+                id: creator.id,
+                username: creator.username,
+                avatar: creator.avatarUrl,
+            }
+            : null,
+        applicationCount: applicationCountResult?.count ?? 0,
+        assignee: assignee
+            ? {
+                id: assignee.id,
+                username: assignee.username,
+                avatar: assignee.avatarUrl,
+            }
+            : null,
+    });
 });
 
 /**
