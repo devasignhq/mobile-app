@@ -19,6 +19,12 @@ vi.mock('../db', () => ({
     },
 }));
 
+const createSelectResultMock = <T>(rows: T[]) => ({
+    from: vi.fn().mockReturnValue({
+        where: vi.fn().mockResolvedValue(rows),
+    }),
+});
+
 describe('GET /api/bounties/:id', () => {
     let app: ReturnType<typeof createApp>;
 
@@ -62,25 +68,11 @@ describe('GET /api/bounties/:id', () => {
         } as never);
 
         vi.mocked(db.select)
-            .mockReturnValueOnce({
-                from: vi.fn().mockReturnValue({
-                    where: vi.fn().mockResolvedValue([{ count: 3 }]),
-                }),
-            } as never)
-            .mockReturnValueOnce({
-                from: vi.fn().mockReturnValue({
-                    where: vi.fn().mockResolvedValue([
-                        { id: 'creator-1', username: 'alice', avatarUrl: 'https://img/creator.png' },
-                    ]),
-                }),
-            } as never)
-            .mockReturnValueOnce({
-                from: vi.fn().mockReturnValue({
-                    where: vi.fn().mockResolvedValue([
-                        { id: 'assignee-1', username: 'bob', avatarUrl: 'https://img/assignee.png' },
-                    ]),
-                }),
-            } as never);
+            .mockReturnValueOnce(createSelectResultMock([{ count: 3 }]) as never)
+            .mockReturnValueOnce(createSelectResultMock([
+                { id: 'creator-1', username: 'alice', avatarUrl: 'https://img/creator.png' },
+                { id: 'assignee-1', username: 'bob', avatarUrl: 'https://img/assignee.png' },
+            ]) as never);
 
         const res = await app.request('/api/bounties/bounty-1', {
             headers: {
@@ -97,13 +89,14 @@ describe('GET /api/bounties/:id', () => {
         expect(body.creator).toEqual({
             id: 'creator-1',
             username: 'alice',
-            avatar: 'https://img/creator.png',
+            avatarUrl: 'https://img/creator.png',
         });
         expect(body.assignee).toEqual({
             id: 'assignee-1',
             username: 'bob',
-            avatar: 'https://img/assignee.png',
+            avatarUrl: 'https://img/assignee.png',
         });
+        expect(db.select).toHaveBeenCalledTimes(2);
     });
 
     it('should return assignee as null when bounty is unassigned', async () => {
@@ -117,18 +110,10 @@ describe('GET /api/bounties/:id', () => {
         } as never);
 
         vi.mocked(db.select)
-            .mockReturnValueOnce({
-                from: vi.fn().mockReturnValue({
-                    where: vi.fn().mockResolvedValue([{ count: 0 }]),
-                }),
-            } as never)
-            .mockReturnValueOnce({
-                from: vi.fn().mockReturnValue({
-                    where: vi.fn().mockResolvedValue([
-                        { id: 'creator-2', username: 'charlie', avatarUrl: null },
-                    ]),
-                }),
-            } as never);
+            .mockReturnValueOnce(createSelectResultMock([{ count: 0 }]) as never)
+            .mockReturnValueOnce(createSelectResultMock([
+                { id: 'creator-2', username: 'charlie', avatarUrl: null },
+            ]) as never);
 
         const res = await app.request('/api/bounties/bounty-2', {
             headers: {
@@ -143,7 +128,65 @@ describe('GET /api/bounties/:id', () => {
         expect(body.creator).toEqual({
             id: 'creator-2',
             username: 'charlie',
-            avatar: null,
+            avatarUrl: null,
+        });
+        expect(body.assignee).toBeNull();
+        expect(db.select).toHaveBeenCalledTimes(2);
+    });
+
+    it('should return 500 when the creator record is missing', async () => {
+        vi.mocked(db.query.bounties.findFirst).mockResolvedValue({
+            id: 'bounty-3',
+            title: 'Broken bounty',
+            description: 'Test description',
+            creatorId: 'creator-3',
+            assigneeId: null,
+            status: 'open',
+        } as never);
+
+        vi.mocked(db.select)
+            .mockReturnValueOnce(createSelectResultMock([{ count: 1 }]) as never)
+            .mockReturnValueOnce(createSelectResultMock([]) as never);
+
+        const res = await app.request('/api/bounties/bounty-3', {
+            headers: {
+                Authorization: 'Bearer valid.token',
+            },
+        });
+
+        expect(res.status).toBe(500);
+        expect(await res.json()).toEqual({ error: 'Bounty creator not found' });
+    });
+
+    it('should return assignee as null when the assignee record is missing', async () => {
+        vi.mocked(db.query.bounties.findFirst).mockResolvedValue({
+            id: 'bounty-4',
+            title: 'Missing assignee',
+            description: 'Test description',
+            creatorId: 'creator-4',
+            assigneeId: 'assignee-4',
+            status: 'assigned',
+        } as never);
+
+        vi.mocked(db.select)
+            .mockReturnValueOnce(createSelectResultMock([{ count: 2 }]) as never)
+            .mockReturnValueOnce(createSelectResultMock([
+                { id: 'creator-4', username: 'dana', avatarUrl: 'https://img/creator-4.png' },
+            ]) as never);
+
+        const res = await app.request('/api/bounties/bounty-4', {
+            headers: {
+                Authorization: 'Bearer valid.token',
+            },
+        });
+
+        expect(res.status).toBe(200);
+        const body = await res.json();
+
+        expect(body.creator).toEqual({
+            id: 'creator-4',
+            username: 'dana',
+            avatarUrl: 'https://img/creator-4.png',
         });
         expect(body.assignee).toBeNull();
     });
