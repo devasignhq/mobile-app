@@ -2,10 +2,16 @@ import { Hono } from 'hono';
 import { Variables } from '../middleware/auth';
 import { ensureBountyCreator, ensureBountyAssignee } from '../middleware/resource-auth';
 import { db } from '../db';
-import { bounties } from '../db/schema';
-import { eq, and, gte, lte, sql, desc, or, lt } from 'drizzle-orm';
+import { bounties, applications, users } from '../db/schema';
+import { eq, and, gte, lte, sql, desc, or, lt, inArray } from 'drizzle-orm';
 
 const bountiesRouter = new Hono<{ Variables: Variables }>();
+
+const toPublicUser = (user: { id: string; username: string | null; avatarUrl: string | null }) => ({
+    id: user.id,
+    username: user.username,
+    avatarUrl: user.avatarUrl,
+});
 
 /**
  * GET /api/bounties
@@ -85,7 +91,7 @@ bountiesRouter.get('/', async (c) => {
                     )
                 )
             );
-        } catch (e) {
+        } catch {
             return c.json({ error: 'Invalid cursor' }, 400);
         }
     }
@@ -136,7 +142,40 @@ bountiesRouter.get('/:id', async (c) => {
         return c.json({ error: 'Bounty not found' }, 404);
     }
 
-    return c.json(bounty);
+    const userIds = bounty.assigneeId && bounty.assigneeId !== bounty.creatorId
+        ? [bounty.creatorId, bounty.assigneeId]
+        : [bounty.creatorId];
+
+    const [[applicationCountResult], relatedUsers] = await Promise.all([
+        db
+            .select({ count: sql<number>`cast(count(*) as int)` })
+            .from(applications)
+            .where(eq(applications.bountyId, id)),
+        db
+            .select({
+                id: users.id,
+                username: users.username,
+                avatarUrl: users.avatarUrl,
+            })
+            .from(users)
+            .where(inArray(users.id, userIds)),
+    ]);
+
+    const usersById = new Map(relatedUsers.map((user) => [user.id, user]));
+    const creator = usersById.get(bounty.creatorId);
+
+    if (!creator) {
+        return c.json({ error: 'Bounty creator not found' }, 500);
+    }
+
+    const assignee = bounty.assigneeId ? usersById.get(bounty.assigneeId) ?? null : null;
+
+    return c.json({
+        ...bounty,
+        creator: toPublicUser(creator),
+        applicationCount: applicationCountResult?.count ?? 0,
+        assignee: assignee ? toPublicUser(assignee) : null,
+    });
 });
 
 /**
