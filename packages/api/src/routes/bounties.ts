@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { Variables } from '../middleware/auth';
 import { ensureBountyCreator, ensureBountyAssignee } from '../middleware/resource-auth';
 import { db } from '../db';
-import { bounties } from '../db/schema';
+import { applications, bounties, users } from '../db/schema';
 import { eq, and, gte, lte, sql, desc, or, lt } from 'drizzle-orm';
 
 const bountiesRouter = new Hono<{ Variables: Variables }>();
@@ -136,7 +136,39 @@ bountiesRouter.get('/:id', async (c) => {
         return c.json({ error: 'Bounty not found' }, 404);
     }
 
-    return c.json(bounty);
+    const [applicationsForBounty, creator, assignee] = await Promise.all([
+        db.query.applications.findMany({
+            where: eq(applications.bountyId, bounty.id),
+            columns: { id: true },
+        }),
+        db.query.users.findFirst({
+            where: eq(users.id, bounty.creatorId),
+            columns: { username: true, avatarUrl: true },
+        }),
+        bounty.assigneeId
+            ? db.query.users.findFirst({
+                where: eq(users.id, bounty.assigneeId),
+                columns: { username: true, avatarUrl: true },
+            })
+            : Promise.resolve(null),
+    ]);
+
+    return c.json({
+        ...bounty,
+        application_count: applicationsForBounty.length,
+        creator: creator
+            ? {
+                username: creator.username,
+                avatar_url: creator.avatarUrl,
+            }
+            : null,
+        assignee: assignee
+            ? {
+                username: assignee.username,
+                avatar_url: assignee.avatarUrl,
+            }
+            : null,
+    });
 });
 
 /**
