@@ -1,5 +1,6 @@
 import { pgTable, text, timestamp, varchar, bigint, jsonb, decimal, integer, uuid, pgEnum, index, uniqueIndex, check } from 'drizzle-orm/pg-core';
 import { sql, desc } from 'drizzle-orm';
+import { relations } from 'drizzle-orm';
 
 
 export const difficultyEnum = pgEnum('difficulty', ['beginner', 'intermediate', 'advanced']);
@@ -185,3 +186,35 @@ export const transactions = pgTable('transactions', {
         stellarTxHashIdx: uniqueIndex('transactions_stellar_tx_hash_idx').on(table.stellarTxHash),
     };
 });
+
+
+export const usersRelations = relations(users, ({ many }) => ({
+    createdBounties: many(bounties, { relationName: 'bounty_creator' }),
+    assignedBounties: many(bounties, { relationName: 'bounty_assignee' }),
+    applications: many(applications),
+}));
+
+export const bountiesRelations = relations(bounties, ({ one, many }) => ({
+    creator: one(users, {
+        fields: [bounties.creatorId],
+        references: [users.id],
+        relationName: 'bounty_creator',
+    }),
+    assignee: one(users, {
+        fields: [bounties.assigneeId],
+        references: [users.id],
+        relationName: 'bounty_assignee',
+    }),
+    applications: many(applications),
+}));
+
+export const applicationsRelations = relations(applications, ({ one }) => ({
+    bounty: one(bounties, {
+        fields: [applications.bountyId],
+        references: [bounties.id],
+    }),
+    applicant: one(users, {
+        fields: [applications.applicantId],
+        references: [users.id],
+    }),
+}));
