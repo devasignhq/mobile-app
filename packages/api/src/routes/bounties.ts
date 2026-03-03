@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { Variables } from '../middleware/auth';
 import { ensureBountyCreator, ensureBountyAssignee } from '../middleware/resource-auth';
 import { db } from '../db';
-import { bounties } from '../db/schema';
+import { applications, bounties } from '../db/schema';
 import { eq, and, gte, lte, sql, desc, or, lt } from 'drizzle-orm';
 
 const bountiesRouter = new Hono<{ Variables: Variables }>();
@@ -130,13 +130,37 @@ bountiesRouter.get('/:id', async (c) => {
     const id = c.req.param('id');
     const bounty = await db.query.bounties.findFirst({
         where: eq(bounties.id, id),
+        with: {
+            creator: {
+                columns: {
+                    id: true,
+                    username: true,
+                    avatarUrl: true,
+                },
+            },
+            assignee: {
+                columns: {
+                    id: true,
+                    username: true,
+                    avatarUrl: true,
+                },
+            },
+        },
     });
 
     if (!bounty) {
         return c.json({ error: 'Bounty not found' }, 404);
     }
 
-    return c.json(bounty);
+    const bountyApplications = await db.query.applications.findMany({
+        columns: { id: true },
+        where: eq(applications.bountyId, id),
+    });
+
+    return c.json({
+        ...bounty,
+        applicationCount: bountyApplications.length,
+    });
 });
 
 /**
