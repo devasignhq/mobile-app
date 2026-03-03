@@ -13,6 +13,7 @@ vi.mock('../db', () => ({
         findFirst: vi.fn(),
       },
     },
+    select: vi.fn(),
     update: vi.fn(),
   },
 }));
@@ -26,9 +27,15 @@ describe('GET /api/bounties/:id', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(verify).mockResolvedValue({ sub: 'user-id' } as any);
+
+    vi.mocked((db as any).select).mockReturnValue({
+      from: vi.fn().mockReturnValue({
+        where: vi.fn().mockResolvedValue([{ count: 0 }]),
+      }),
+    });
   });
 
-  it('returns bounty detail with creator, assignee and application_count', async () => {
+  it('returns bounty detail with creator, assignee and applicationCount', async () => {
     vi.mocked((db.query as any).bounties.findFirst).mockResolvedValue({
       id: 'b-1',
       githubIssueId: 123,
@@ -55,8 +62,13 @@ describe('GET /api/bounties/:id', () => {
         username: 'assignee_user',
         avatarUrl: 'https://img/assignee.png',
       },
-      applications: [{ id: 'a1' }, { id: 'a2' }, { id: 'a3' }],
     } as any);
+
+    vi.mocked((db as any).select).mockReturnValue({
+      from: vi.fn().mockReturnValue({
+        where: vi.fn().mockResolvedValue([{ count: 3 }]),
+      }),
+    });
 
     const res = await app.request('/api/bounties/b-1', {
       method: 'GET',
@@ -72,14 +84,14 @@ describe('GET /api/bounties/:id', () => {
     expect(body.creator).toEqual({
       id: 'u-1',
       username: 'creator_user',
-      avatar: 'https://img/creator.png',
+      avatarUrl: 'https://img/creator.png',
     });
     expect(body.assignee).toEqual({
       id: 'u-2',
       username: 'assignee_user',
-      avatar: 'https://img/assignee.png',
+      avatarUrl: 'https://img/assignee.png',
     });
-    expect(body.application_count).toBe(3);
+    expect(body.applicationCount).toBe(3);
     expect(body.status).toBe('assigned');
   });
 
@@ -106,7 +118,6 @@ describe('GET /api/bounties/:id', () => {
         avatarUrl: 'https://img/creator.png',
       },
       assignee: null,
-      applications: [],
     } as any);
 
     const res = await app.request('/api/bounties/b-2', {
@@ -119,7 +130,7 @@ describe('GET /api/bounties/:id', () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.assignee).toBeNull();
-    expect(body.application_count).toBe(0);
+    expect(body.applicationCount).toBe(0);
   });
 
   it('returns 404 when bounty is not found', async () => {
