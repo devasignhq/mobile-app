@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { Variables } from '../middleware/auth';
 import { ensureBountyCreator, ensureBountyAssignee } from '../middleware/resource-auth';
 import { db } from '../db';
-import { bounties } from '../db/schema';
+import { applications, bounties, users } from '../db/schema';
 import { eq, and, gte, lte, sql, desc, or, lt } from 'drizzle-orm';
 
 const bountiesRouter = new Hono<{ Variables: Variables }>();
@@ -125,18 +125,83 @@ bountiesRouter.get('/', async (c) => {
 /**
  * GET /api/bounties/:id
  * Publicly accessible route to get bounty details
+ *
+ * Returns:
+ * - base bounty fields
+ * - creator info (username, avatar)
+ * - application_count
+ * - assignee info (username, avatar) when assigned
  */
 bountiesRouter.get('/:id', async (c) => {
     const id = c.req.param('id');
+
     const bounty = await db.query.bounties.findFirst({
         where: eq(bounties.id, id),
+        columns: {
+            id: true,
+            githubIssueId: true,
+            repoOwner: true,
+            repoName: true,
+            title: true,
+            description: true,
+            amountUsdc: true,
+            techTags: true,
+            difficulty: true,
+            status: true,
+            deadline: true,
+            creatorId: true,
+            assigneeId: true,
+            createdAt: true,
+            updatedAt: true,
+        },
+        with: {
+            creator: {
+                columns: {
+                    id: true,
+                    username: true,
+                    avatarUrl: true,
+                },
+            },
+            assignee: {
+                columns: {
+                    id: true,
+                    username: true,
+                    avatarUrl: true,
+                },
+            },
+            applications: {
+                columns: {
+                    id: true,
+                },
+            },
+        },
     });
 
     if (!bounty) {
         return c.json({ error: 'Bounty not found' }, 404);
     }
 
-    return c.json(bounty);
+    const { applications: bountyApplications, creator, assignee, ...base } = bounty;
+
+    return c.json({
+        ...base,
+        creator: creator
+            ? {
+                id: creator.id,
+                username: creator.username,
+                avatar: creator.avatarUrl,
+            }
+            : null,
+        assignee: assignee
+            ? {
+                id: assignee.id,
+                username: assignee.username,
+                avatar: assignee.avatarUrl,
+            }
+            : null,
+        application_count: bountyApplications.length,
+        status: base.status,
+    });
 });
 
 /**
