@@ -65,16 +65,21 @@ auth.get('/github/callback', async (c) => {
     const code = c.req.query('code');
     const state = c.req.query('state');
     const storedState = getCookie(c, 'oauth_state');
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+
+    const redirectError = (errorMsg: string) => {
+        return c.redirect(`${frontendUrl}/login/callback?error=${encodeURIComponent(errorMsg)}`);
+    };
 
     // Clear the cookie immediately after reading it
     deleteCookie(c, 'oauth_state');
 
     if (!code) {
-        return c.json({ error: 'Authorization code missing' }, 400);
+        return redirectError('Authorization code missing');
     }
 
     if (!state || state !== storedState) {
-        return c.json({ error: 'Invalid state' }, 400);
+        return redirectError('Invalid state');
     }
 
     try {
@@ -85,7 +90,7 @@ auth.get('/github/callback', async (c) => {
         const githubUser = await githubService.getUserProfile(accessToken);
 
         if (!githubUser.email) {
-            return c.json({ error: 'GitHub account must have a verified email' }, 400);
+            return redirectError('GitHub account must have a verified email');
         }
 
         // 3. Upsert user in database
@@ -138,7 +143,7 @@ auth.get('/github/callback', async (c) => {
             token = await generateAccessToken(user!);
         } catch (error) {
             console.error('Access token generation failed:', error);
-            return c.json({ error: 'Internal server configuration error' }, 500);
+            return redirectError('Internal server configuration error');
         }
 
         // 5. Generate Refresh token
@@ -153,21 +158,19 @@ auth.get('/github/callback', async (c) => {
             expiresAt,
         });
 
-        // 6. Respond with user and tokens
-        return c.json({
-            user: {
-                id: user!.id,
-                username: user!.username,
-                email: user!.email,
-                avatarUrl: user!.avatarUrl,
-            },
+        // 6. Redirect to frontend with tokens
+        const params = new URLSearchParams({
             token,
             refreshToken: refreshTokenValue,
+            userId: user!.id,
+            username: user!.username || '',
+            avatarUrl: user!.avatarUrl || '',
         });
+        return c.redirect(`${frontendUrl}/login/callback?${params.toString()}`);
 
     } catch (error: unknown) {
         console.error('OAuth Callback Error:', error);
-        return c.json({ error: 'Authentication failed' }, 500);
+        return redirectError('Authentication failed');
     }
 });
 

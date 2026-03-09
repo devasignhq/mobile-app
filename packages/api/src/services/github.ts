@@ -19,18 +19,21 @@ export interface GitHubEmail {
 }
 
 export class GitHubService {
-    private clientId: string;
-    private clientSecret: string;
-    private redirectUri: string;
+    /**
+     * Env vars are read lazily (via getters) instead of in the constructor,
+     * because this singleton is instantiated at module-import time — before
+     * dotenv.config() has executed in index.ts.
+     */
+    private get clientId(): string {
+        return process.env.GITHUB_CLIENT_ID || '';
+    }
 
-    constructor() {
-        this.clientId = process.env.GITHUB_CLIENT_ID || '';
-        this.clientSecret = process.env.GITHUB_CLIENT_SECRET || '';
-        this.redirectUri = process.env.GITHUB_CALLBACK_URL || '';
+    private get clientSecret(): string {
+        return process.env.GITHUB_CLIENT_SECRET || '';
+    }
 
-        if (!this.clientId || !this.clientSecret) {
-            console.warn('GitHub OAuth credentials are not fully configured.');
-        }
+    private get redirectUri(): string {
+        return process.env.GITHUB_CALLBACK_URL || '';
     }
 
     /**

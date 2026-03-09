@@ -1,20 +1,66 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 import { Github } from 'lucide-react';
 import { Button } from '../components/Shared';
 import { theme } from '../styles/theme';
 
 export const Login: React.FC = () => {
-  const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
+  const navigate = useNavigate();
+  const { login } = useAuth();
 
   const handleLogin = () => {
     setIsLoading(true);
-    // Simulate auth delay
-    setTimeout(() => {
-      localStorage.setItem('isAuthenticated', 'true');
-      navigate('/explorer');
-    }, 1500);
+
+    const width = 500;
+    const height = 600;
+    const left = window.screenX + (window.outerWidth - width) / 2;
+    const top = window.screenY + (window.outerHeight - height) / 2;
+
+    const popup = window.open(
+      window.location.origin + '/auth/github',
+      'github_oauth',
+      `width=${width},height=${height},left=${left},top=${top}`
+    );
+
+    if (!popup) {
+      console.error('Failed to open popup window. Please allow popups for this site.');
+      setIsLoading(false);
+      return;
+    }
+
+    const handleMessage = (event: MessageEvent) => {
+      // Validate origin to prevent XSS
+      if (event.origin !== window.location.origin) return;
+
+      if (event.data?.type === 'oauth_success') {
+        window.removeEventListener('message', handleMessage);
+
+        const { token, refreshToken, userId, username, avatarUrl } = event.data.payload;
+        login(token, refreshToken, {
+          id: userId,
+          username: username || '',
+          avatarUrl: avatarUrl || '',
+        });
+        navigate('/explorer', { replace: true });
+      } else if (event.data?.type === 'oauth_error') {
+        window.removeEventListener('message', handleMessage);
+        console.error('OAuth Error:', event.data.error);
+        setIsLoading(false);
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+
+    // Poll to check if popup was closed by the user manually
+    const pollTimer = setInterval(() => {
+      if (popup.closed) {
+        clearInterval(pollTimer);
+        window.removeEventListener('message', handleMessage);
+        setIsLoading(false);
+      }
+    }, 500);
   };
 
   return (
@@ -26,46 +72,46 @@ export const Login: React.FC = () => {
       <div className="z-10 w-full max-w-sm flex flex-col items-center text-center space-y-8">
         <div className="flex flex-col items-center space-y-4">
           <div className="relative w-32 h-32 flex items-center justify-center">
-             <div className="absolute inset-0 bg-primary/20 blur-[50px] rounded-full"></div>
-             {/* Custom SVG Logo matching the uploaded asset */}
-             <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full relative z-10 drop-shadow-2xl hover:scale-105 transition-transform duration-500">
-                {/* Left Chevron - Light Orange */}
-                <path 
-                  d="M38 25 L16 50 L38 75" 
-                  stroke="#FDBA74" 
-                  strokeWidth="14" 
-                  strokeLinecap="round" 
-                  strokeLinejoin="round" 
-                />
-                
-                {/* Right Circuit Shape - Primary Orange */}
-                <path 
-                  d="M52 50 L76 22 L94 42 L66 78" 
-                  stroke="#FE891F" 
-                  strokeWidth="14" 
-                  strokeLinecap="round" 
-                  strokeLinejoin="round" 
-                />
-                
-                {/* White "Holes" for the nodes */}
-                <circle cx="52" cy="50" r="4" fill="white" />
-                <circle cx="66" cy="78" r="4" fill="white" />
-             </svg>
+            <div className="absolute inset-0 bg-primary/20 blur-[50px] rounded-full"></div>
+            {/* Custom SVG Logo matching the uploaded asset */}
+            <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full relative z-10 drop-shadow-2xl hover:scale-105 transition-transform duration-500">
+              {/* Left Chevron - Light Orange */}
+              <path
+                d="M38 25 L16 50 L38 75"
+                stroke="#FDBA74"
+                strokeWidth="14"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+
+              {/* Right Circuit Shape - Primary Orange */}
+              <path
+                d="M52 50 L76 22 L94 42 L66 78"
+                stroke="#FE891F"
+                strokeWidth="14"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+
+              {/* White "Holes" for the nodes */}
+              <circle cx="52" cy="50" r="4" fill="white" />
+              <circle cx="66" cy="78" r="4" fill="white" />
+            </svg>
           </div>
-          
+
           <h1 className={theme.typography.h1}>
             Dev<span className="text-primary">Asign</span>
           </h1>
           <p className={theme.typography.body + " text-lg max-w-xs"}>
-            Connect with open source. <br/> Earn <span className="text-white font-semibold">USDC</span> for your code.
+            Connect with open source. <br /> Earn <span className="text-white font-semibold">USDC</span> for your code.
           </p>
         </div>
 
         <div className="w-full space-y-4 pt-8">
-          <Button 
-            onClick={handleLogin} 
-            size="lg" 
-            fullWidth 
+          <Button
+            onClick={handleLogin}
+            size="lg"
+            fullWidth
             className="flex items-center gap-3 relative overflow-hidden group"
             disabled={isLoading}
           >
@@ -78,10 +124,10 @@ export const Login: React.FC = () => {
               </>
             )}
           </Button>
-          
+
           <p className={theme.typography.caption}>
             By continuing, you agree to our Terms of Service.
-            <br/>GitHub account required.
+            <br />GitHub account required.
           </p>
         </div>
       </div>

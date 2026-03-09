@@ -1,15 +1,14 @@
-import { neon, neonConfig } from '@neondatabase/serverless';
-import { drizzle } from 'drizzle-orm/neon-http';
+import postgres from 'postgres';
+import { drizzle } from 'drizzle-orm/postgres-js';
 import * as schema from './schema';
+import { getDatabaseUrl } from './config';
 
-// Enable connection caching for better performance in serverless environments.
-// This reuses the same TCP connection across multiple function invocations.
-neonConfig.fetchConnectionCache = true;
+const databaseUrl = getDatabaseUrl();
 
-const databaseUrl = process.env.DATABASE_URL;
-if (!databaseUrl) {
-    throw new Error('DATABASE_URL environment variable is not set or is empty');
-}
+const client = postgres(databaseUrl, {
+    ssl: 'require',
+    connect_timeout: 30, // Increase timeout to 30s to handle Neon Serverless cold starts
+    max: 10,             // Number of max connections
+});
+export const db = drizzle(client, { schema });
 
-const sql = neon(databaseUrl);
-export const db = drizzle(sql, { schema });

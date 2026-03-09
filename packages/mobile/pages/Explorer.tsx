@@ -4,11 +4,13 @@ import { Search, SlidersHorizontal, Bell, ArrowRight } from 'lucide-react';
 import { MOCK_BOUNTIES, CURRENT_USER } from '../mockData';
 import { Bounty } from '../types';
 import { useNotifications } from '../contexts/NotificationContext';
+import { useAuth } from '../contexts/AuthContext';
 import { FilterSheet, FilterState } from '../components/FilterSheet';
 import { theme } from '../styles/theme';
 
 export const Explorer: React.FC = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const { unreadCount } = useNotifications();
 
@@ -85,7 +87,7 @@ export const Explorer: React.FC = () => {
           <div className={theme.layout.rowCenter + " gap-3"}>
             <div className="relative">
               <img
-                src={CURRENT_USER.avatarUrl}
+                src={user?.avatarUrl || CURRENT_USER.avatarUrl}
                 alt="User"
                 className="w-10 h-10 rounded-full border border-white/10 object-cover"
               />
@@ -93,7 +95,7 @@ export const Explorer: React.FC = () => {
             </div>
             <div>
               <div className="text-xs text-text-secondary leading-none mb-1">Welcome back,</div>
-              <div className="font-bold text-sm text-white leading-none">{CURRENT_USER.username}</div>
+              <div className="font-bold text-sm text-white leading-none">{user?.username || CURRENT_USER.username}</div>
             </div>
           </div>
           <button

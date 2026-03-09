@@ -1,9 +1,26 @@
 import { serve } from '@hono/node-server';
 import dotenv from 'dotenv';
+import dns from 'node:dns';
+
+// Fix for Node >= 18 fetch failing on github.com due to IPv6 routing issues
+dns.setDefaultResultOrder('ipv4first');
+
 import { createApp } from './app';
 
 // Load environment variables
-dotenv.config();
+import path from 'path';
+import fs from 'fs';
+
+const envPath = path.resolve(process.cwd(), '.env');
+const rootEnvPath = path.resolve(process.cwd(), '../../.env');
+
+if (fs.existsSync(envPath)) {
+    dotenv.config({ path: envPath });
+} else if (fs.existsSync(rootEnvPath)) {
+    dotenv.config({ path: rootEnvPath });
+} else {
+    dotenv.config(); // Fallback to default behavior
+}
 
 // Default NODE_ENV to 'development' if not set
 process.env.NODE_ENV ??= 'development';

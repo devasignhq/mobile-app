@@ -3,13 +3,15 @@ import { useNavigate } from 'react-router-dom';
 import { Award, Zap, Code, Settings, ExternalLink, LogOut } from 'lucide-react';
 import { Card, Badge, Button } from '../components/Shared';
 import { CURRENT_USER } from '../mockData';
+import { useAuth } from '../contexts/AuthContext';
 
 export const Profile: React.FC = () => {
   const navigate = useNavigate();
+  const { user, logout } = useAuth();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
-  const handleLogout = () => {
-    localStorage.removeItem('isAuthenticated');
+  const handleLogout = async () => {
+    await logout();
     navigate('/');
   };
 
@@ -17,13 +19,13 @@ export const Profile: React.FC = () => {
     <div className="min-h-full bg-background">
       {/* Sticky Header */}
       <div className="sticky top-0 z-30 flex justify-between items-center px-5 py-4 bg-background/95 backdrop-blur-xl border-b border-white/5">
-         <h2 className="text-xl font-bold text-white">Profile</h2>
-         <button 
-           onClick={() => navigate('/settings')}
-           className="p-2.5 hover:bg-surface rounded-full text-text-secondary border border-transparent hover:border-white/10 transition-colors"
-         >
-            <Settings size={22} />
-         </button>
+        <h2 className="text-xl font-bold text-white">Profile</h2>
+        <button
+          onClick={() => navigate('/settings')}
+          className="p-2.5 hover:bg-surface rounded-full text-text-secondary border border-transparent hover:border-white/10 transition-colors"
+        >
+          <Settings size={22} />
+        </button>
       </div>
 
       {/* Content */}
@@ -31,14 +33,14 @@ export const Profile: React.FC = () => {
         {/* Profile Header */}
         <div className="flex flex-col items-center py-6">
           <div className="relative">
-            <img src={CURRENT_USER.avatarUrl} alt="Profile" className="w-20 h-20 rounded-full border-4 border-surface shadow-2xl" />
+            <img src={user?.avatarUrl || CURRENT_USER.avatarUrl} alt="Profile" className="w-20 h-20 rounded-full border-4 border-surface shadow-2xl" />
             <div className="absolute bottom-0 right-0 bg-primary w-7 h-7 rounded-full border-4 border-background flex items-center justify-center">
               <Zap size={12} className="text-black fill-black" />
             </div>
           </div>
-          <h3 className="mt-4 text-2xl font-bold">{CURRENT_USER.username}</h3>
+          <h3 className="mt-4 text-2xl font-bold">{user?.username || CURRENT_USER.username}</h3>
           <a href="#" className="flex items-center gap-1.5 text-sm text-text-secondary hover:text-primary mt-1 px-3 py-1 rounded-full bg-surface/50 border border-white/5">
-            github.com/{CURRENT_USER.username} <ExternalLink size={12} />
+            github.com/{user?.username || CURRENT_USER.username} <ExternalLink size={12} />
           </a>
         </div>
 
@@ -77,22 +79,22 @@ export const Profile: React.FC = () => {
         {/* Recent Activity Mock */}
         <div className="space-y-3 pt-2">
           <h4 className="text-sm font-bold text-text-secondary uppercase tracking-wider pl-1">Achievements</h4>
-           {/* SOC2 Style Badge */}
-           <div className="inline-flex items-center bg-black border border-white/10 rounded-lg p-1.5 pr-4 gap-3 hover:border-yellow-500/50 transition-colors shadow-sm cursor-default group">
-              <div className="w-9 h-9 bg-gradient-to-b from-yellow-400 to-yellow-600 rounded flex items-center justify-center text-black shadow-inner group-hover:scale-105 transition-transform">
-                  <Award size={18} strokeWidth={2.5} />
-              </div>
-              <div className="flex flex-col">
-                  <span className="text-[9px] font-bold text-yellow-500 uppercase tracking-widest leading-none mb-0.5">Verified</span>
-                  <span className="text-xs font-bold text-white leading-tight">Early Adopter</span>
-              </div>
-           </div>
+          {/* SOC2 Style Badge */}
+          <div className="inline-flex items-center bg-black border border-white/10 rounded-lg p-1.5 pr-4 gap-3 hover:border-yellow-500/50 transition-colors shadow-sm cursor-default group">
+            <div className="w-9 h-9 bg-gradient-to-b from-yellow-400 to-yellow-600 rounded flex items-center justify-center text-black shadow-inner group-hover:scale-105 transition-transform">
+              <Award size={18} strokeWidth={2.5} />
+            </div>
+            <div className="flex flex-col">
+              <span className="text-[9px] font-bold text-yellow-500 uppercase tracking-widest leading-none mb-0.5">Verified</span>
+              <span className="text-xs font-bold text-white leading-tight">Early Adopter</span>
+            </div>
+          </div>
         </div>
-        
-         <div className="pt-8">
-          <Button 
-            variant="outline" 
-            fullWidth 
+
+        <div className="pt-8">
+          <Button
+            variant="outline"
+            fullWidth
             className="text-error border-error/30 hover:bg-error/10 hover:border-error/50"
             onClick={() => setShowLogoutConfirm(true)}
           >
@@ -104,7 +106,7 @@ export const Profile: React.FC = () => {
       {/* Logout Confirmation Modal */}
       {showLogoutConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div 
+          <div
             className="absolute inset-0 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200"
             onClick={() => setShowLogoutConfirm(false)}
           ></div>
@@ -120,16 +122,16 @@ export const Profile: React.FC = () => {
                 </p>
               </div>
               <div className="flex gap-3 w-full pt-2">
-                <Button 
-                  variant="ghost" 
-                  fullWidth 
+                <Button
+                  variant="ghost"
+                  fullWidth
                   onClick={() => setShowLogoutConfirm(false)}
                   className="bg-white/5 hover:bg-white/10 text-white"
                 >
                   Cancel
                 </Button>
-                <Button 
-                  fullWidth 
+                <Button
+                  fullWidth
                   onClick={handleLogout}
                   className="bg-error hover:bg-error/90 text-white shadow-lg shadow-error/20"
                 >

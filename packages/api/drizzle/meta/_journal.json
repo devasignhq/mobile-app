@@ -45,13 +45,6 @@
       "breakpoints": true
     },
     {
-      "idx": 6,
-      "version": "7",
-      "when": 1771496150949,
-      "tag": "0006_bouncy_spacker_dave",
-      "breakpoints": true
-    },
-    {
       "idx": 7,
       "version": "7",
       "when": 1771498117714,
@@ -91,13 +84,6 @@
       "version": "7",
       "when": 1771504501408,
       "tag": "0012_awesome_scream",
-      "breakpoints": true
-    },
-    {
-      "idx": 13,
-      "version": "7",
-      "when": 1771561617866,
-      "tag": "0013_marvelous_valeria_richards",
       "breakpoints": true
     },
     {

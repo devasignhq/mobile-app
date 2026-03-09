@@ -2,8 +2,9 @@ import { Hono } from 'hono';
 import { Variables } from '../middleware/auth';
 import { ensureBountyCreator, ensureBountyAssignee } from '../middleware/resource-auth';
 import { db } from '../db';
-import { bounties } from '../db/schema';
-import { eq, and, gte, lte, sql, desc, or, lt } from 'drizzle-orm';
+import { bounties, users, applications } from '../db/schema';
+import { eq, and, gte, lte, sql, desc, or, lt, count } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 
 const bountiesRouter = new Hono<{ Variables: Variables }>();
 
@@ -128,15 +129,44 @@ bountiesRouter.get('/', async (c) => {
  */
 bountiesRouter.get('/:id', async (c) => {
     const id = c.req.param('id');
-    const bounty = await db.query.bounties.findFirst({
-        where: eq(bounties.id, id),
-    });
 
-    if (!bounty) {
+
+    const assigneeTable = alias(users, 'assignee');
+
+    const result = await db.select({
+        bounty: bounties,
+        creator: {
+            username: users.username,
+            avatarUrl: users.avatarUrl,
+        },
+        assignee: {
+            username: assigneeTable.username,
+            avatarUrl: assigneeTable.avatarUrl,
+        },
+    })
+        .from(bounties)
+        .leftJoin(users, eq(bounties.creatorId, users.id))
+        .leftJoin(assigneeTable, eq(bounties.assigneeId, assigneeTable.id))
+        .where(eq(bounties.id, id));
+
+    if (!result || result.length === 0) {
         return c.json({ error: 'Bounty not found' }, 404);
     }
 
-    return c.json(bounty);
+    const bountyData = result[0];
+
+    const appCountResult = await db.select({ count: count() })
+        .from(applications)
+        .where(eq(applications.bountyId, id));
+
+    const applicationCount = appCountResult[0]?.count || 0;
+
+    return c.json({
+        ...bountyData.bounty,
+        creator: bountyData.creator,
+        assignee: bountyData.bounty.assigneeId ? bountyData.assignee : null,
+        applicationCount,
+    });
 });
 
 /**

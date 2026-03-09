@@ -73,29 +73,29 @@ describe('Authentication Flow', () => {
     });
 
     describe('GET /auth/github/callback', () => {
-        it('should return 400 if code is missing', async () => {
+        it('should redirect back with error if code is missing', async () => {
             const res = await app.request('/auth/github/callback?state=random_state', {
                 headers: {
                     Cookie: 'oauth_state=random_state',
                 },
             });
-            expect(res.status).toBe(400);
-            const body = await res.json();
-            expect(body.error).toBe('Authorization code missing');
+            expect(res.status).toBe(302);
+            const location = res.headers.get('Location')!;
+            expect(location).toContain('/login/callback?error=' + encodeURIComponent('Authorization code missing'));
         });
 
-        it('should return 400 if state is invalid or missing from cookie', async () => {
+        it('should redirect back with error if state is invalid or missing from cookie', async () => {
             const res = await app.request('/auth/github/callback?code=abc&state=wrong_state', {
                 headers: {
                     Cookie: 'oauth_state=correct_state',
                 },
             });
-            expect(res.status).toBe(400);
-            const body = await res.json();
-            expect(body.error).toBe('Invalid state');
+            expect(res.status).toBe(302);
+            const location = res.headers.get('Location')!;
+            expect(location).toContain('/login/callback?error=' + encodeURIComponent('Invalid state'));
         });
 
-        it('should successfully authenticate and return user + token + refreshToken', async () => {
+        it('should successfully authenticate and redirect with token + refreshToken', async () => {
             const mockGithubUser = {
                 id: 12345,
                 login: 'testuser',
@@ -123,18 +123,20 @@ describe('Authentication Flow', () => {
                 },
             });
 
-            expect(res.status).toBe(200);
-            const body = await res.json();
-            expect(body.user.username).toBe('testuser');
-            expect(body.token).toBeDefined();
-            expect(body.refreshToken).toBeDefined();
+            expect(res.status).toBe(302);
+            const location = res.headers.get('Location')!;
+            const redirectUrl = new URL(location);
+            expect(redirectUrl.pathname).toBe('/login/callback');
+            expect(redirectUrl.searchParams.get('token')).toBeDefined();
+            expect(redirectUrl.searchParams.get('refreshToken')).toBeDefined();
+            expect(redirectUrl.searchParams.get('username')).toBe('testuser');
 
             // Verify db calls
             expect(db.query.users.findFirst).toHaveBeenCalledTimes(2);
             expect(db.insert).toHaveBeenCalledTimes(2); // Once for user, once for refresh token
         });
 
-        it('should successfully authenticate, update existing user, and re-fetch profile', async () => {
+        it('should successfully authenticate, update existing user, and redirect', async () => {
             const mockGithubUser = {
                 id: 12345,
                 login: 'updateduser',
@@ -169,19 +171,19 @@ describe('Authentication Flow', () => {
                 },
             });
 
-            expect(res.status).toBe(200);
-            const body = await res.json();
-            expect(body.user.username).toBe('updateduser');
-            expect(body.user.email).toBe('updated@example.com');
-            expect(body.token).toBeDefined();
-            expect(body.refreshToken).toBeDefined();
+            expect(res.status).toBe(302);
+            const location = res.headers.get('Location')!;
+            const redirectUrl = new URL(location);
+            expect(redirectUrl.searchParams.get('username')).toBe('updateduser');
+            expect(redirectUrl.searchParams.get('token')).toBeDefined();
+            expect(redirectUrl.searchParams.get('refreshToken')).toBeDefined();
 
             // Verify db calls
             expect(db.query.users.findFirst).toHaveBeenCalledTimes(2);
             expect(db.update).toHaveBeenCalled();
         });
 
-        it('should return 500 with generic message on internal error', async () => {
+        it('should redirect back with generic message on internal error', async () => {
             (githubService.getAccessToken as any).mockRejectedValue(new Error('GitHub API Error'));
 
             const res = await app.request('/auth/github/callback?code=abc&state=random_state', {
@@ -190,13 +192,12 @@ describe('Authentication Flow', () => {
                 },
             });
 
-            expect(res.status).toBe(500);
-            const body = await res.json();
-            expect(body.error).toBe('Authentication failed');
-            expect(body.message).toBeUndefined(); // Should be sanitized
+            expect(res.status).toBe(302);
+            const location = res.headers.get('Location')!;
+            expect(location).toContain('/login/callback?error=' + encodeURIComponent('Authentication failed'));
         });
 
-        it('should return 500 if JWT_PRIVATE_KEY is missing', async () => {
+        it('should redirect back with error if JWT_PRIVATE_KEY is missing', async () => {
             delete process.env.JWT_PRIVATE_KEY;
 
             const mockGithubUser = {
@@ -216,9 +217,9 @@ describe('Authentication Flow', () => {
                 },
             });
 
-            expect(res.status).toBe(500);
-            const body = await res.json();
-            expect(body.error).toBe('Internal server configuration error');
+            expect(res.status).toBe(302);
+            const location = res.headers.get('Location')!;
+            expect(location).toContain('/login/callback?error=' + encodeURIComponent('Internal server configuration error'));
         });
     });
 
