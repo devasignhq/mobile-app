@@ -124,6 +124,80 @@ bountiesRouter.get('/', async (c) => {
 });
 
 /**
+ * GET /api/bounties/recommended
+ * Personalized recommendations for the authenticated user based on tech tags matching.
+ */
+interface RecommendedCacheEntry {
+    data: any[];
+    timestamp: number;
+}
+const recommendedCache = new Map<string, RecommendedCacheEntry>();
+const CACHE_TTL_MS = 15 * 60 * 1000;
+
+bountiesRouter.get('/recommended', async (c) => {
+    const user = c.get('user');
+    if (!user) {
+        return c.json({ error: 'Unauthorized' }, 401);
+    }
+
+    // Check cache
+    const cached = recommendedCache.get(user.id);
+    if (cached && (Date.now() - cached.timestamp < CACHE_TTL_MS)) {
+        return c.json({ data: cached.data });
+    }
+
+    // Fetch user profile to get tech stack
+    const userProfile = await db.query.users.findFirst({
+        where: eq(users.id, user.id),
+    });
+
+    const techStack = userProfile?.techStack || [];
+
+    // Fetch all open bounties
+    const openBounties = await db.query.bounties.findMany({
+        where: eq(bounties.status, 'open'),
+        orderBy: [desc(bounties.createdAt)],
+    });
+
+    let results = [];
+
+    // If no tech stack, just return latest open bounties
+    if (techStack.length === 0) {
+        results = openBounties.slice(0, 10);
+    } else {
+        // Calculate relevance score
+        const scoredBounties = openBounties.map(bounty => {
+            let score = 0;
+            const bountyTags = bounty.techTags || [];
+            for (const tag of bountyTags) {
+                if (techStack.includes(tag)) {
+                    score++;
+                }
+            }
+            return {
+                ...bounty,
+                relevanceScore: score,
+            };
+        });
+
+        // Sort by relevance score (desc), then by createdAt (desc)
+        scoredBounties.sort((a, b) => {
+            if (b.relevanceScore !== a.relevanceScore) {
+                return b.relevanceScore - a.relevanceScore;
+            }
+            return b.createdAt.getTime() - a.createdAt.getTime();
+        });
+
+        results = scoredBounties.slice(0, 10).map(({ relevanceScore, ...rest }) => rest);
+    }
+
+    // Save to cache
+    recommendedCache.set(user.id, { data: results, timestamp: Date.now() });
+
+    return c.json({ data: results });
+});
+
+/**
  * GET /api/bounties/:id
  * Publicly accessible route to get bounty details
  */
