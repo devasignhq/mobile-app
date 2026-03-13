@@ -170,4 +170,24 @@ describe('POST /api/tasks/:id/submit', () => {
         const body = await res.json();
         expect(body.prUrl).toBe(mockSubmission.prUrl);
     });
+
+    it('should return 409 if a submission for the bounty already exists', async () => {
+        const duplicateError = new Error('duplicate key value') as any;
+        duplicateError.code = '23505';
+
+        vi.mocked(db.transaction).mockRejectedValue(duplicateError);
+
+        const res = await app.request('/api/tasks/b-123/submit', {
+            method: 'POST',
+            body: JSON.stringify({ pr_url: 'https://github.com/pr/1' }),
+            headers: {
+                Authorization: 'Bearer valid.token',
+                'Content-Type': 'application/json'
+            },
+        });
+
+        expect(res.status).toBe(409);
+        const body = await res.json();
+        expect(body.error).toBe('A submission for this bounty already exists.');
+    });
 });
