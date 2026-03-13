@@ -126,7 +126,7 @@ describe('POST /api/bounties/:id/apply', () => {
         expect(body.error).toBe('Bounty is not open for applications');
     });
 
-    it('should return 400 if cover_letter is missing', async () => {
+    it('should return 400 with specific Zod error if cover_letter is missing', async () => {
         mockFindFirst.mockResolvedValue(OPEN_BOUNTY);
 
         const res = await app.request('/api/bounties/bounty-1/apply', {
@@ -140,10 +140,11 @@ describe('POST /api/bounties/:id/apply', () => {
 
         expect(res.status).toBe(400);
         const body = await res.json();
-        expect(body.error).toBeDefined();
+        expect(body.error.cover_letter).toBeDefined();
+        expect(body.error.cover_letter[0]).toContain('string');
     });
 
-    it('should return 400 if cover_letter is an empty string', async () => {
+    it('should return 400 with specific Zod error if cover_letter is an empty string', async () => {
         mockFindFirst.mockResolvedValue(OPEN_BOUNTY);
 
         const res = await app.request('/api/bounties/bounty-1/apply', {
@@ -157,10 +158,10 @@ describe('POST /api/bounties/:id/apply', () => {
 
         expect(res.status).toBe(400);
         const body = await res.json();
-        expect(body.error).toBeDefined();
+        expect(body.error.cover_letter).toBeDefined();
     });
 
-    it('should return 400 if estimated_time is not a non-negative integer', async () => {
+    it('should return 400 with specific Zod error if estimated_time is not a non-negative integer', async () => {
         mockFindFirst.mockResolvedValue(OPEN_BOUNTY);
 
         const res = await app.request('/api/bounties/bounty-1/apply', {
@@ -174,10 +175,10 @@ describe('POST /api/bounties/:id/apply', () => {
 
         expect(res.status).toBe(400);
         const body = await res.json();
-        expect(body.error).toBeDefined();
+        expect(body.error.estimated_time).toBeDefined();
     });
 
-    it('should return 400 if experience_links contains non-strings', async () => {
+    it('should return 400 with specific Zod error if experience_links contains non-strings', async () => {
         mockFindFirst.mockResolvedValue(OPEN_BOUNTY);
 
         const res = await app.request('/api/bounties/bounty-1/apply', {
@@ -191,7 +192,7 @@ describe('POST /api/bounties/:id/apply', () => {
 
         expect(res.status).toBe(400);
         const body = await res.json();
-        expect(body.error).toBeDefined();
+        expect(body.error.experience_links).toBeDefined();
     });
 
     it('should return 201 with the created application on success', async () => {
@@ -220,9 +221,10 @@ describe('POST /api/bounties/:id/apply', () => {
         expect(body.status).toBe('pending');
 
         // Verify the correct arguments were passed to the insert
+        // applicantId should be 'test-user-id' (mapped from sub)
         expect(mockValues).toHaveBeenCalledWith({
             bountyId: 'bounty-1',
-            applicantId: 'test-user-id', // user.id = JWT sub claim
+            applicantId: 'test-user-id',
             coverLetter: 'I am very interested in this bounty.',
             estimatedTime: 5,
             experienceLinks: ['https://github.com/user/project'],

@@ -12,7 +12,8 @@ export interface JWTPayload {
 // Extend Hono's Context Variables to include our user payload
 export type Variables = {
     user: {
-        id: string; // the 'sub' claim
+        id: string;
+        sub: string; // the 'sub' claim (alias for id)
         username: string | null;
     };
 };
@@ -66,6 +67,7 @@ export const authMiddleware = async (c: Context<{ Variables: Variables }>, next:
         // Inject the user context into the request variables
         c.set('user', {
             id: payload.sub as string,
+            sub: payload.sub as string,
             username: payload.username as string | null,
         });
 

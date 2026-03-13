@@ -296,10 +296,11 @@ bountiesRouter.post('/:id/apply', async (c) => {
 
     // Insert application
     try {
-        // Note: user.id is the JWT 'sub' claim, mapped by the auth middleware
+        // user.sub is the standard JWT subject claim, now aliased in the auth middeleware for clarity.
+        // NOTE: the database column 'estimated_time' is an integer per migration 0004 and snapshot 0016.
         const [application] = await db.insert(applications).values({
             bountyId: id,
-            applicantId: user.id,
+            applicantId: user.sub,
             coverLetter,
             estimatedTime,
             experienceLinks,
