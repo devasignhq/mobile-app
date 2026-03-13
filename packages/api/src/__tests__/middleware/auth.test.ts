@@ -80,7 +80,7 @@ describe('Auth Middleware', () => {
             expect(res.status).toBe(200);
             const body = await res.json();
             expect(body.data).toBe('secret');
-            expect(body.user).toEqual({ id: 'user-123', username: 'testuser' });
+            expect(body.user).toEqual({ id: 'user-123', sub: 'user-123', username: 'testuser' });
         });
 
         it('should return 401 if token is invalid or expired', async () => {

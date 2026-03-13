@@ -5,6 +5,13 @@ import { db } from '../db';
 import { bounties, users, applications } from '../db/schema';
 import { eq, and, gte, lte, sql, desc, or, lt, count } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
+import { z } from 'zod';
+
+const applySchema = z.object({
+    cover_letter: z.string().trim().min(1, 'cover_letter is required and must be a non-empty string'),
+    estimated_time: z.number().int().nonnegative().optional().default(0),
+    experience_links: z.array(z.string()).optional().default([]),
+});
 
 const bountiesRouter = new Hono<{ Variables: Variables }>();
 
@@ -241,6 +248,72 @@ bountiesRouter.get('/:id', async (c) => {
         assignee: bountyData.bounty.assigneeId ? bountyData.assignee : null,
         applicationCount,
     });
+});
+
+/**
+ * POST /api/bounties/:id/apply
+ * Submit an application for a bounty. Requires authentication.
+ * Body: { cover_letter: string, estimated_time?: number, experience_links?: string[] }
+ */
+bountiesRouter.post('/:id/apply', async (c) => {
+    const user = c.get('user');
+    if (!user) {
+        return c.json({ error: 'Unauthorized' }, 401);
+    }
+
+    const id = c.req.param('id');
+
+    // Fetch the bounty
+    const bounty = await db.query.bounties.findFirst({
+        where: eq(bounties.id, id),
+    });
+
+    if (!bounty) {
+        return c.json({ error: 'Bounty not found' }, 404);
+    }
+
+    // Validate bounty is open
+    if (bounty.status !== 'open') {
+        return c.json({ error: 'Bounty is not open for applications' }, 400);
+    }
+
+    // Parse and validate body
+    const rawBody = await c.req.json().catch(() => null);
+    if (!rawBody) {
+        return c.json({ error: 'Invalid JSON body' }, 400);
+    }
+
+    const validation = applySchema.safeParse(rawBody);
+    if (!validation.success) {
+        return c.json({ error: validation.error.flatten().fieldErrors }, 400);
+    }
+
+    const {
+        cover_letter: coverLetter,
+        estimated_time: estimatedTime,
+        experience_links: experienceLinks,
+    } = validation.data;
+
+    // Insert application
+    try {
+        // user.sub is the standard JWT subject claim, now aliased in the auth middeleware for clarity.
+        // NOTE: the database column 'estimated_time' is an integer per migration 0004 and snapshot 0016.
+        const [application] = await db.insert(applications).values({
+            bountyId: id,
+            applicantId: user.sub,
+            coverLetter,
+            estimatedTime,
+            experienceLinks,
+        }).returning();
+
+        return c.json(application, 201);
+    } catch (err: any) {
+        // Postgres unique violation: duplicate application
+        if (err?.code === '23505') {
+            return c.json({ error: 'You have already applied to this bounty' }, 409);
+        }
+        throw err;
+    }
 });
 
 /**
