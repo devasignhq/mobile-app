@@ -158,7 +158,8 @@ bountiesRouter.get('/recommended', async (c) => {
         where: eq(users.id, user.id),
     });
 
-    const techStack = userProfile?.techStack || [];
+    const rawTechStack = userProfile?.techStack || [];
+    const techStack = rawTechStack.map(t => t.toLowerCase());
 
     // Fetch all open bounties
     const openBounties = await db.query.bounties.findMany({
@@ -166,25 +167,39 @@ bountiesRouter.get('/recommended', async (c) => {
         orderBy: [desc(bounties.createdAt)],
     });
 
-    let results = [];
+    let results: (typeof openBounties[number] & { relevanceScore: number })[];
 
-    // If no tech stack, just return latest open bounties
+    // If no tech stack, return latest open bounties with zero relevance
     if (techStack.length === 0) {
-        results = openBounties.slice(0, 10);
+        results = openBounties.slice(0, 10).map(bounty => ({
+            ...bounty,
+            relevanceScore: 0,
+        }));
     } else {
-        // Calculate relevance score
+        // Calculate weighted relevance score
         const scoredBounties = openBounties.map(bounty => {
-            let score = 0;
-            const bountyTags = bounty.techTags || [];
+            const bountyTags = (bounty.techTags || []).map(t => t.toLowerCase());
+
+            if (bountyTags.length === 0) {
+                return { ...bounty, relevanceScore: 0 };
+            }
+
+            // Count matching tags (case-insensitive)
+            let matchCount = 0;
             for (const tag of bountyTags) {
                 if (techStack.includes(tag)) {
-                    score++;
+                    matchCount++;
                 }
             }
-            return {
-                ...bounty,
-                relevanceScore: score,
-            };
+
+            // Weighted scoring:
+            // - Coverage (70%): fraction of bounty's required tags the user knows
+            // - Depth (30%): fraction of user's stack that overlaps with the bounty
+            const coverage = matchCount / bountyTags.length;
+            const depth = matchCount / techStack.length;
+            const relevanceScore = Math.round((0.7 * coverage + 0.3 * depth) * 100) / 100;
+
+            return { ...bounty, relevanceScore };
         });
 
         // Sort by relevance score (desc), then by createdAt (desc)
@@ -195,7 +210,7 @@ bountiesRouter.get('/recommended', async (c) => {
             return b.createdAt.getTime() - a.createdAt.getTime();
         });
 
-        results = scoredBounties.slice(0, 10).map(({ relevanceScore, ...rest }) => rest);
+        results = scoredBounties.slice(0, 10);
     }
 
     // Save to cache
