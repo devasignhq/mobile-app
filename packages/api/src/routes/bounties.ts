@@ -168,9 +168,12 @@ bountiesRouter.get('/recommended', async (c) => {
 
     let results = [];
 
-    // If no tech stack, just return latest open bounties
+    // If no tech stack, just return latest open bounties with relevanceScore: 0
     if (techStack.length === 0) {
-        results = openBounties.slice(0, 10);
+        results = openBounties.slice(0, 10).map(bounty => ({
+            ...bounty,
+            relevanceScore: 0,
+        }));
     } else {
         // Calculate relevance score
         const scoredBounties = openBounties.map(bounty => {
@@ -195,7 +198,7 @@ bountiesRouter.get('/recommended', async (c) => {
             return b.createdAt.getTime() - a.createdAt.getTime();
         });
 
-        results = scoredBounties.slice(0, 10).map(({ relevanceScore, ...rest }) => rest);
+        results = scoredBounties.slice(0, 10);
     }
 
     // Save to cache
