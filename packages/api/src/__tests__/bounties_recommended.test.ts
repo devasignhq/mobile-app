@@ -80,8 +80,11 @@ describe('GET /api/bounties/recommended', () => {
         // Check sorting: Bounty 2 (2 score), Bounty 3 (1 score), Bounty 1 (0 score)
         expect(body.data).toHaveLength(3);
         expect(body.data[0].id).toBe('2');
+        expect(body.data[0].relevanceScore).toBe(2);
         expect(body.data[1].id).toBe('3');
+        expect(body.data[1].relevanceScore).toBe(1);
         expect(body.data[2].id).toBe('1');
+        expect(body.data[2].relevanceScore).toBe(0);
     });
 
     it('should fall back to sorting by createdAt for identical relevance scores', async () => {
@@ -117,7 +120,9 @@ describe('GET /api/bounties/recommended', () => {
         // Check sorting: Both have 1 score, so the newer one comes first
         expect(body.data).toHaveLength(2);
         expect(body.data[0].id).toBe('new');
+        expect(body.data[0].relevanceScore).toBe(1);
         expect(body.data[1].id).toBe('old');
+        expect(body.data[1].relevanceScore).toBe(1);
     });
 
     it('should use cache on subsequent requests within TTL', async () => {
