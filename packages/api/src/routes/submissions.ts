@@ -122,7 +122,7 @@ submissionsRouter.get(
 
 const disputeSchema = z.object({
     reason: z.string().min(1).max(2000),
-    evidenceLinks: z.array(z.string().url()).optional().default([]),
+    evidence_links: z.array(z.string().url()).optional().default([]),
 });
 
 /**
@@ -141,72 +141,8 @@ submissionsRouter.post(
         }
 
         const { id } = c.req.valid('param');
-        const { reason, evidenceLinks } = c.req.valid('json');
+        const { reason, evidence_links } = c.req.valid('json');
 
-        try {
-            const [createdDispute] = await db.transaction(async (tx) => {
-                // Check if submission exists and belongs to user
-                const [submission] = await tx
-                    .select()
-                    .from(submissions)
-                    .where(and(
-                        eq(submissions.id, id),
-                        eq(submissions.developerId, user.id)
-                    ));
-
-                if (!submission) {
-                    tx.rollback();
-                    return c.json({ error: 'Submission not found' }, 404);
-                }
-
-                // Validate submission was rejected
-                if (submission.status !== 'rejected') {
-                    tx.rollback();
-                    return c.json({
-                        error: 'Only rejected submissions can be disputed',
-                        currentStatus: submission.status
-                    }, 400);
-                }
-
-                // Check if dispute already exists
-                const [existingDispute] = await tx
-                    .select()
-                    .from(disputes)
-                    .where(eq(disputes.submissionId, id));
-
-                if (existingDispute) {
-                    tx.rollback();
-                    return c.json({
-                        error: 'Dispute already exists for this submission',
-                        disputeId: existingDispute.id
-                    }, 409);
-                }
-
-                // Update submission status to disputed
-                await tx
-                    .update(submissions)
-                    .set({ status: 'disputed' })
-                    .where(eq(submissions.id, id));
-
-                // Create dispute record
-                return await tx
-                    .insert(disputes)
-                    .values({
-                        submissionId: id,
-                        reason,
-                        evidenceLinks,
-                        status: 'open',
-                    })
-                    .returning();
-            });
-
-            return c.json({
-                data: createdDispute,
-                message: 'Dispute opened successfully',
-            }, 201);
-        } catch (error) {
-            return c.json({ error: 'Failed to create dispute or submission was modified concurrently' }, 409);
-        }
     }
 );
 

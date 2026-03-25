@@ -279,7 +279,6 @@ nt POST /submissions/:id/dispute endpoint)
             method: 'POST',
             headers: {
                 Authorization: 'Bearer invalid.token',
-nt POST /submissions/:id/dispute endpoint)
         });
 
         expect(res.status).toBe(401);
@@ -291,14 +290,12 @@ nt POST /submissions/:id/dispute endpoint)
         expect(res.status).toBe(400);
     });
 
-nt POST /submissions/:id/dispute endpoint)
         vi.mocked(db.select).mockReturnValue({ from: mockFrom } as any);
 
         const res = await app.request('/api/submissions/123e4567-e89b-12d3-a456-426614174000/dispute', {
             method: 'POST',
             headers: {
                 Authorization: 'Bearer valid.token',
-nt POST /submissions/:id/dispute endpoint)
         });
 
         expect(res.status).toBe(404);
@@ -314,7 +311,6 @@ nt POST /submissions/:id/dispute endpoint)
             method: 'POST',
             headers: {
                 Authorization: 'Bearer valid.token',
-nt POST /submissions/:id/dispute endpoint)
         });
 
         expect(res.status).toBe(400);
@@ -327,11 +323,9 @@ nt POST /submissions/:id/dispute endpoint)
             method: 'POST',
             headers: {
                 Authorization: 'Bearer valid.token',
-nt POST /submissions/:id/dispute endpoint)
         });
 
         expect(res.status).toBe(409);
         const body = await res.json();
-nt POST /submissions/:id/dispute endpoint)
     });
 });
