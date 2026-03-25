@@ -248,8 +248,10 @@ submissionsRouter.post(
                     status: 'pending'
                 });
                 
-                // Also update the bounty status to completed once it's approved
-                // Wait, does approval mean bounty is completed? Probably, but let me just update submission and transaction.
+                // Update the bounty status to completed
+                await tx.update(bounties)
+                    .set({ status: 'completed' })
+                    .where(eq(bounties.id, bounty.id));
             });
 
             return c.json({ message: 'Submission approved and payment triggered successfully' }, 200);
@@ -300,24 +302,30 @@ submissionsRouter.post(
         }
 
         try {
-            const updated = await db.update(submissions)
-                .set({ 
-                    status: 'rejected',
-                    rejectionReason: rejection_reason
-                })
-                .where(and(
-                    eq(submissions.id, id),
-                    eq(submissions.status, submission.status)
-                ))
-                .returning({ id: submissions.id });
-                
-            if (updated.length === 0) {
-                return c.json({ error: 'Submission was modified concurrently' }, 409);
-            }
+            await db.transaction(async (tx) => {
+                const updated = await tx.update(submissions)
+                    .set({ 
+                        status: 'rejected',
+                        rejectionReason: rejection_reason
+                    })
+                    .where(and(
+                        eq(submissions.id, id),
+                        eq(submissions.status, submission.status)
+                    ))
+                    .returning({ id: submissions.id });
+                    
+                if (updated.length === 0) {
+                    tx.rollback();
+                }
+
+                await tx.update(bounties)
+                    .set({ status: 'assigned' })
+                    .where(eq(bounties.id, bounty.id));
+            });
 
             return c.json({ message: 'Submission rejected successfully' }, 200);
         } catch (error) {
-            return c.json({ error: 'Failed to reject submission' }, 500);
+            return c.json({ error: 'Failed to reject submission or it was modified concurrently' }, 409);
         }
     }
 );

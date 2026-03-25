@@ -639,7 +639,9 @@ describe('POST /api/submissions/:id/reject', () => {
         const mockUpdateSet = vi.fn().mockReturnValue({ where: mockUpdateWhere });
         const mockUpdate = vi.fn().mockReturnValue({ set: mockUpdateSet });
 
-        (db as any).update = mockUpdate;
+        db.transaction = vi.fn().mockImplementation(async (cb) => {
+            return cb({ update: mockUpdate });
+        });
 
         const res = await app.request('/api/submissions/123e4567-e89b-12d3-a456-426614174000/reject', {
             method: 'POST',
