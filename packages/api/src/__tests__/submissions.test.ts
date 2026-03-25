@@ -280,7 +280,7 @@ describe('POST /api/submissions/:id/dispute', () => {
                 Authorization: 'Bearer invalid.token',
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ reason: 'Test dispute', evidenceLinks: [] }),
+            body: JSON.stringify({ reason: 'Test dispute', evidence_links: [] }),
         });
 
         expect(res.status).toBe(401);
@@ -306,7 +306,7 @@ describe('POST /api/submissions/:id/dispute', () => {
                 Authorization: 'Bearer valid.token',
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ evidenceLinks: [] }),
+            body: JSON.stringify({ evidence_links: [] }),
         });
 
         expect(res.status).toBe(400);
@@ -324,7 +324,7 @@ describe('POST /api/submissions/:id/dispute', () => {
                 Authorization: 'Bearer valid.token',
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ reason: 'This is unfair!', evidenceLinks: [] }),
+            body: JSON.stringify({ reason: 'This is unfair!', evidence_links: [] }),
         });
 
         expect(res.status).toBe(404);
@@ -349,7 +349,7 @@ describe('POST /api/submissions/:id/dispute', () => {
                 Authorization: 'Bearer valid.token',
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ reason: 'This is unfair!', evidenceLinks: [] }),
+            body: JSON.stringify({ reason: 'This is unfair!', evidence_links: [] }),
         });
 
         expect(res.status).toBe(400);
@@ -391,7 +391,7 @@ describe('POST /api/submissions/:id/dispute', () => {
                 Authorization: 'Bearer valid.token',
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ reason: 'This is unfair!', evidenceLinks: [] }),
+            body: JSON.stringify({ reason: 'This is unfair!', evidence_links: [] }),
         });
 
         expect(res.status).toBe(409);
@@ -410,7 +410,7 @@ describe('POST /api/submissions/:id/dispute', () => {
             id: 'd-new',
             submissionId: '123e4567-e89b-12d3-a456-426614174000',
             reason: 'The code meets all requirements',
-            evidenceLinks: ['https://example.com/proof'],
+            evidence_links: ['https://example.com/proof'],
             status: 'open',
             createdAt: new Date(),
         };
@@ -455,7 +455,7 @@ describe('POST /api/submissions/:id/dispute', () => {
             },
             body: JSON.stringify({
                 reason: 'The code meets all requirements',
-                evidenceLinks: ['https://example.com/proof'],
+                evidence_links: ['https://example.com/proof'],
             }),
         });
 
