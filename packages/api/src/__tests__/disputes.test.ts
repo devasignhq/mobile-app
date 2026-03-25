@@ -242,4 +242,45 @@ describe('POST /api/disputes/:id/resolve', () => {
 
         vi.restoreAllMocks();
     });
+
+    it('should return 409 if dispute is modified concurrently', async () => {
+        const mockWhere = vi.fn().mockResolvedValue([{
+            dispute: { id: 'd-1', status: 'open' },
+            submission: { id: 's-1', developerId: 'dev-1' },
+            bounty: { id: 'b-1', creatorId: 'creator-user-id', amountUsdc: '100.00' }
+        }]);
+        const mockInnerJoin2 = vi.fn().mockReturnValue({ where: mockWhere });
+        const mockInnerJoin1 = vi.fn().mockReturnValue({ innerJoin: mockInnerJoin2 });
+        const mockFrom = vi.fn().mockReturnValue({ innerJoin: mockInnerJoin1 });
+        vi.mocked(db.select).mockReturnValue({ from: mockFrom } as any);
+
+        const mockUpdateReturning = vi.fn().mockResolvedValue([]); // Simulate 0 rows updated
+        const mockUpdateWhere = vi.fn().mockImplementation(() => {
+            const chainable = Promise.resolve([]);
+            (chainable as any).returning = mockUpdateReturning;
+            return chainable;
+        });
+        const mockUpdateSet = vi.fn().mockReturnValue({ where: mockUpdateWhere });
+        const mockUpdate = vi.fn().mockReturnValue({ set: mockUpdateSet });
+
+        db.transaction = vi.fn().mockImplementation(async (cb) => {
+            return cb({
+                update: mockUpdate,
+                rollback: () => { throw new Error('Rollback'); }
+            });
+        });
+
+        const res = await app.request('/api/disputes/123e4567-e89b-12d3-a456-426614174000/resolve', {
+            method: 'POST',
+            headers: {
+                Authorization: 'Bearer valid.token',
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ resolution: 'resolved_developer' })
+        });
+
+        expect(res.status).toBe(409);
+        const body = await res.json();
+        expect(body.error).toBe('Failed to resolve dispute or records were modified concurrently');
+    });
 });
