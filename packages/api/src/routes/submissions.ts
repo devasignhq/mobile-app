@@ -110,4 +110,85 @@ submissionsRouter.get(
     }
 );
 
+const disputeSchema = z.object({
+    reason: z.string().min(1).max(2000),
+    evidenceLinks: z.array(z.string().url()).optional().default([]),
+});
+
+/**
+ * POST /api/submissions/:id/dispute
+ * Opens a dispute for a rejected submission.
+ * Validates that submission was rejected and belongs to the authenticated user.
+ */
+submissionsRouter.post(
+    '/:id/dispute',
+    zValidator('param', idSchema),
+    zValidator('json', disputeSchema),
+    async (c) => {
+        const user = c.get('user');
+        if (!user) {
+            return c.json({ error: 'Unauthorized' }, 401);
+        }
+
+        const { id } = c.req.valid('param');
+        const { reason, evidenceLinks } = c.req.valid('json');
+
+        // Check if submission exists and belongs to user
+        const [submission] = await db
+            .select()
+            .from(submissions)
+            .where(and(
+                eq(submissions.id, id),
+                eq(submissions.developerId, user.id)
+            ));
+
+        if (!submission) {
+            return c.json({ error: 'Submission not found' }, 404);
+        }
+
+        // Validate submission was rejected
+        if (submission.status !== 'rejected') {
+            return c.json({ 
+                error: 'Only rejected submissions can be disputed',
+                currentStatus: submission.status 
+            }, 400);
+        }
+
+        // Check if dispute already exists
+        const [existingDispute] = await db
+            .select()
+            .from(disputes)
+            .where(eq(disputes.submissionId, id));
+
+        if (existingDispute) {
+            return c.json({ 
+                error: 'Dispute already exists for this submission',
+                disputeId: existingDispute.id 
+            }, 409);
+        }
+
+        // Create dispute record
+        const [dispute] = await db
+            .insert(disputes)
+            .values({
+                submissionId: id,
+                reason,
+                evidenceLinks,
+                status: 'open',
+            })
+            .returning();
+
+        // Update submission status to disputed
+        await db
+            .update(submissions)
+            .set({ status: 'disputed' })
+            .where(eq(submissions.id, id));
+
+        return c.json({
+            data: dispute,
+            message: 'Dispute opened successfully',
+        }, 201);
+    }
+);
+
 export default submissionsRouter;
