@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { StellarClient } from '../services/stellar';
-import { Keypair, Networks } from 'stellar-sdk';
+import { Keypair, Networks } from '@stellar/stellar-sdk';
 
 // Mock stellar-sdk broadly
-vi.mock('stellar-sdk', async (importOriginal) => {
-    const actual = await importOriginal<typeof import('stellar-sdk')>();
+vi.mock('@stellar/stellar-sdk', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('@stellar/stellar-sdk')>();
     return {
         ...actual,
         Horizon: {

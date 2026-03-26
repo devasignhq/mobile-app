@@ -57,6 +57,9 @@ importers:
       '@neondatabase/serverless':
         specifier: ^1.0.2
         version: 1.0.2
+      '@stellar/stellar-sdk':
+        specifier: ^14.6.1
+        version: 14.6.1
       dotenv:
         specifier: ^17.3.1
         version: 17.3.1
@@ -69,9 +72,6 @@ importers:
       postgres:
         specifier: ^3.4.8
         version: 3.4.8
-      stellar-sdk:
-        specifier: ^13.3.0
-        version: 13.3.0
       uuid:
         specifier: ^13.0.0
         version: 13.0.0
@@ -772,6 +772,14 @@ packages:
     resolution: {integrity: sha512-I5sbpSIAHiB+b6UttofhrN/UJXII+4tZPAq1qugzwCwLIL8EZLV7F/JyHUrEIiGgQpEXzpnjlJ+zwcEhheGvCw==}
     engines: {node: '>=19.0.0'}
 
+  '@noble/curves@1.9.7':
+    resolution: {integrity: sha512-gbKGcRUYIjA3/zCCNaWDciTMFI0dCkvou3TL8Zmy5Nc7sJ47a0jtOeZoTaMxkuqRo9cRhjOdZJXegxYE5FN/xw==}
+    engines: {node: ^14.21.3 || >=16}
+
+  '@noble/hashes@1.8.0':
+    resolution: {integrity: sha512-jCs9ldd7NwzpgXDIf6P3+NrHh9/sD6CQdxHyjQI+h/6rDNo88ypBxxz45UDuZHz9r3tNz7N/VInSVoVdtXEI4A==}
+    engines: {node: ^14.21.3 || >=16}
+
   '@reduxjs/toolkit@2.11.2':
     resolution: {integrity: sha512-Kd6kAHTA6/nUpp8mySPqj3en3dm0tdMIgbttnQ1xFMVpufoj+ADi8pXLBsd4xzTRHQa7t/Jv8W5UnCuW4kuWMQ==}
     peerDependencies:
@@ -933,9 +941,14 @@ packages:
   '@stellar/js-xdr@3.1.2':
     resolution: {integrity: sha512-VVolPL5goVEIsvuGqDc5uiKxV03lzfWdvYg1KikvwheDmTBO68CKDji3bAZ/kppZrx5iTA8z3Ld5yuytcvhvOQ==}
 
-  '@stellar/stellar-base@13.1.0':
-    resolution: {integrity: sha512-90EArG+eCCEzDGj3OJNoCtwpWDwxjv+rs/RNPhvg4bulpjN/CSRj+Ys/SalRcfM4/WRC5/qAfjzmJBAuquWhkA==}
-    engines: {node: '>=18.0.0'}
+  '@stellar/stellar-base@14.1.0':
+    resolution: {integrity: sha512-A8kFli6QGy22SRF45IjgPAJfUNGjnI+R7g4DF5NZYVsD1kGf7B4ITyc4OPclLV9tqNI4/lXxafGEw0JEUbHixw==}
+    engines: {node: '>=20.0.0'}
+
+  '@stellar/stellar-sdk@14.6.1':
+    resolution: {integrity: sha512-A1rQWDLdUasXkMXnYSuhgep+3ZZzyuXJKdt5/KAIc0gkmSp906HTvUpbT4pu+bVr41tu0+J4Ugz9J4BQAGGytg==}
+    engines: {node: '>=20.0.0'}
+    hasBin: true
 
   '@tsconfig/node10@1.0.12':
     resolution: {integrity: sha512-UCYBaeFvM11aU2y3YPZ//O5Rhj+xKyzy7mvcIoAjASbigy8mHMryP5cK7dgjlz2hWxh1g5pLw084E0a/wlUSFQ==}
@@ -1199,25 +1212,6 @@ packages:
   balanced-match@1.0.2:
     resolution: {integrity: sha512-3oSeUO0TMV67hN1AmbXsK4yaqU7tjiHlbxRDZOpH0KW9+CeX4bRAaX0Anxt0tx2MrpRpWwQaPwIlISEJhYU5Pw==}
 
-  bare-addon-resolve@1.10.0:
-    resolution: {integrity: sha512-sSd0jieRJlDaODOzj0oe0RjFVC1QI0ZIjGIdPkbrTXsdVVtENg14c+lHHAhHwmWCZ2nQlMhy8jA3Y5LYPc/isA==}
-    peerDependencies:
-      bare-url: '*'
-    peerDependenciesMeta:
-      bare-url:
-        optional: true
-
-  bare-module-resolve@1.12.1:
-    resolution: {integrity: sha512-hbmAPyFpEq8FoZMd5sFO3u6MC5feluWoGE8YKlA8fCrl6mNtx68Wjg4DTiDJcqRJaovTvOYKfYngoBUnbaT7eg==}
-    peerDependencies:
-      bare-url: '*'
-    peerDependenciesMeta:
-      bare-url:
-        optional: true
-
-  bare-semver@1.0.2:
-    resolution: {integrity: sha512-ESVaN2nzWhcI5tf3Zzcq9aqCZ676VWzqw07eEZ0qxAcEOAFYBa0pWq8sK34OQeHLY3JsfKXZS9mDyzyxGjeLzA==}
-
   base32.js@0.1.0:
     resolution: {integrity: sha512-n3TkB02ixgBOhTvANakDb4xaMXnYUVkNoRFJjQflcqMQhyEKxEHdj3E6N8t8sUQ0mjH/3/JxzlXuz3ul/J90pQ==}
     engines: {node: '>=0.12.0'}
@@ -1310,6 +1304,10 @@ packages:
   combined-stream@1.0.8:
     resolution: {integrity: sha512-FQN4MRfuJeHf7cBbBMJFXhKSDq+2kAArBlmRBvcvFE5BB1HZKXtSFASDhdlz9zOYwxh8lDdnvmMOe/+5cdoEdg==}
     engines: {node: '>= 0.8'}
+
+  commander@14.0.3:
+    resolution: {integrity: sha512-H+y0Jo/T1RZ9qPP4Eh1pkcQcLRglraJaSLoyOtHxu6AapkjWVCy2Sit1QQ4x3Dng8qDlSsZEet7g5Pq06MvTgw==}
+    engines: {node: '>=20'}
 
   concat-map@0.0.1:
     resolution: {integrity: sha512-/Srv4dswyQNBfohGpz9o6Yb3Gz3SrUDqBH5rTuhGR7ahtlbYKnVxw2bCFMRljaA7EXHaXZ8wsHdodFvbkhKmqg==}
@@ -2223,10 +2221,6 @@ packages:
   redux@5.0.1:
     resolution: {integrity: sha512-M9/ELqF6fy8FwmkpnF0S3YKOqMyoWJ4+CS5Efg2ct3oY9daQvd/Pc71FpGZsVsbl3Cpb+IIcjBDUnnyBdQbq4w==}
 
-  require-addon@1.2.0:
-    resolution: {integrity: sha512-VNPDZlYgIYQwWp9jMTzljx+k0ZtatKlcvOhktZ/anNPI3dQ9NXk7cq2U4iJ1wd9IrytRnYhyEocFWbkdPb+MYA==}
-    engines: {bare: '>=1.10.0'}
-
   reselect@5.1.1:
     resolution: {integrity: sha512-K/BG6eIky/SBpzfHZv/dd+9JBFiS4SWV7FIujVyJRux6e45+73RaUHXLmIR1f7WOMaQ0U1km6qwklRQxpJJY0w==}
 
@@ -2324,9 +2318,6 @@ packages:
   siginfo@2.0.0:
     resolution: {integrity: sha512-ybx0WO1/8bSBLEWXZvEd7gMW3Sn3JFlW3TvX1nREbDLRNQNaeNN8WK0meBwPdAaOI7TtRRRJn/Es1zhrrCHu7g==}
 
-  sodium-native@4.3.3:
-    resolution: {integrity: sha512-OnxSlN3uyY8D0EsLHpmm2HOFmKddQVvEMmsakCrXUzSd8kjjbzL413t4ZNF3n0UxSwNgwTyUvkmZHTfuCeiYSw==}
-
   source-map-js@1.2.1:
     resolution: {integrity: sha512-UXWMKhLOwVKb728IUtQPXxfYU+usdybtUrK/8uGE8CQMvrhOpwvzDBwj0QhSL7MQc7vIsISBG8VQ8+IDQxpfQA==}
     engines: {node: '>=0.10.0'}
@@ -2347,11 +2338,6 @@ packages:
 
   std-env@3.10.0:
     resolution: {integrity: sha512-5GS12FdOZNliM5mAOxFRg7Ir0pWz8MdpYm6AY6VPkGpbA7ZzmbzNcBJQ0GPvvyWgcY7QAhCgf9Uy89I03faLkg==}
-
-  stellar-sdk@13.3.0:
-    resolution: {integrity: sha512-jAA3+U7oAUueldoS4kuEhcym+DigElWq9isPxt7tjMrE7kTJ2vvY29waavUb2FSfQIWwGbuwAJTYddy2BeyJsw==}
-    engines: {node: '>=18.0.0'}
-    deprecated: ⚠️ This package has moved to @stellar/stellar-sdk! 🚚
 
   strip-bom@3.0.0:
     resolution: {integrity: sha512-vavAMRXOgBVNF6nyEEmL3DBK19iRpDcoIwW+swQ+CbGiu7lju6t+JklA1MHweoWtadgt4ISVUsXLyDq34ddcwA==}
@@ -2448,9 +2434,6 @@ packages:
     resolution: {integrity: sha512-5C1sg4USs1lfG0GFb2RLXsdpXqBSEhAaA/0kPL01wxzpMqLILNxIxIOKiILz+cdg/pLnOUxFYOR5yhHU666wbw==}
     engines: {node: '>=18.0.0'}
     hasBin: true
-
-  tweetnacl@1.0.3:
-    resolution: {integrity: sha512-6rt+RN7aOi1nGMyC4Xa5DdYiukl2UWCbcJft7YhxReBGQD7OAM8Pbxw6YMo4r2diNEA8FEmu32YOn9rhaiE5yw==}
 
   type-check@0.4.0:
     resolution: {integrity: sha512-XleUoc9uwGXqjWwXaUTZAmzMcFZ5858QA2vvx1Ur5xIcixXIP+8LnFDgRplU30us6teqdlskFfu+ae4K79Ooew==}
@@ -3081,6 +3064,12 @@ snapshots:
       '@types/node': 22.19.11
       '@types/pg': 8.16.0
 
+  '@noble/curves@1.9.7':
+    dependencies:
+      '@noble/hashes': 1.8.0
+
+  '@noble/hashes@1.8.0': {}
+
   '@reduxjs/toolkit@2.11.2(react-redux@9.2.0(@types/react@19.2.14)(react@19.2.4)(redux@5.0.1))(react@19.2.4)':
     dependencies:
       '@standard-schema/spec': 1.1.0
@@ -3176,18 +3165,28 @@ snapshots:
 
   '@stellar/js-xdr@3.1.2': {}
 
-  '@stellar/stellar-base@13.1.0':
+  '@stellar/stellar-base@14.1.0':
     dependencies:
+      '@noble/curves': 1.9.7
       '@stellar/js-xdr': 3.1.2
       base32.js: 0.1.0
       bignumber.js: 9.3.1
       buffer: 6.0.3
       sha.js: 2.4.12
-      tweetnacl: 1.0.3
-    optionalDependencies:
-      sodium-native: 4.3.3
+
+  '@stellar/stellar-sdk@14.6.1':
+    dependencies:
+      '@stellar/stellar-base': 14.1.0
+      axios: 1.13.6
+      bignumber.js: 9.3.1
+      commander: 14.0.3
+      eventsource: 2.0.2
+      feaxios: 0.0.23
+      randombytes: 2.1.0
+      toml: 3.0.0
+      urijs: 1.19.11
     transitivePeerDependencies:
-      - bare-url
+      - debug
 
   '@tsconfig/node10@1.0.12': {}
 
@@ -3513,20 +3512,6 @@ snapshots:
 
   balanced-match@1.0.2: {}
 
-  bare-addon-resolve@1.10.0:
-    dependencies:
-      bare-module-resolve: 1.12.1
-      bare-semver: 1.0.2
-    optional: true
-
-  bare-module-resolve@1.12.1:
-    dependencies:
-      bare-semver: 1.0.2
-    optional: true
-
-  bare-semver@1.0.2:
-    optional: true
-
   base32.js@0.1.0: {}
 
   base64-js@1.5.1: {}
@@ -3632,6 +3617,8 @@ snapshots:
   combined-stream@1.0.8:
     dependencies:
       delayed-stream: 1.0.0
+
+  commander@14.0.3: {}
 
   concat-map@0.0.1: {}
 
@@ -4454,13 +4441,6 @@ snapshots:
 
   redux@5.0.1: {}
 
-  require-addon@1.2.0:
-    dependencies:
-      bare-addon-resolve: 1.10.0
-    transitivePeerDependencies:
-      - bare-url
-    optional: true
-
   reselect@5.1.1: {}
 
   resolve-from@4.0.0: {}
@@ -4608,13 +4588,6 @@ snapshots:
 
   siginfo@2.0.0: {}
 
-  sodium-native@4.3.3:
-    dependencies:
-      require-addon: 1.2.0
-    transitivePeerDependencies:
-      - bare-url
-    optional: true
-
   source-map-js@1.2.1: {}
 
   source-map-support@0.5.21:
@@ -4629,20 +4602,6 @@ snapshots:
   statuses@2.0.2: {}
 
   std-env@3.10.0: {}
-
-  stellar-sdk@13.3.0:
-    dependencies:
-      '@stellar/stellar-base': 13.1.0
-      axios: 1.13.6
-      bignumber.js: 9.3.1
-      eventsource: 2.0.2
-      feaxios: 0.0.23
-      randombytes: 2.1.0
-      toml: 3.0.0
-      urijs: 1.19.11
-    transitivePeerDependencies:
-      - bare-url
-      - debug
 
   strip-bom@3.0.0: {}
 
@@ -4738,8 +4697,6 @@ snapshots:
       get-tsconfig: 4.13.6
     optionalDependencies:
       fsevents: 2.3.3
-
-  tweetnacl@1.0.3: {}
 
   type-check@0.4.0:
     dependencies:

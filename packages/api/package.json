@@ -26,11 +26,11 @@
         "@hono/node-server": "^1.19.9",
         "@hono/zod-validator": "^0.7.6",
         "@neondatabase/serverless": "^1.0.2",
+        "@stellar/stellar-sdk": "^14.6.1",
         "dotenv": "^17.3.1",
         "drizzle-orm": "^0.45.1",
         "hono": "^4.11.9",
         "postgres": "^3.4.8",
-        "stellar-sdk": "^13.3.0",
         "uuid": "^13.0.0",
         "zod": "^4.3.6"
     }

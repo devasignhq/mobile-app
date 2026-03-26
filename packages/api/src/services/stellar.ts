@@ -1,4 +1,4 @@
-import { Horizon, Keypair, Networks, TransactionBuilder, Asset, Operation } from 'stellar-sdk';
+import { Horizon, Keypair, Networks, TransactionBuilder, Asset, Operation } from '@stellar/stellar-sdk';
 
 export type NetworkType = 'TESTNET' | 'PUBLIC';
 
@@ -118,9 +118,9 @@ export class StellarClient {
     async getUsdcBalance(publicKey: string, usdcIssuer: string): Promise<string> {
         const account = await this.server.loadAccount(publicKey);
         const usdcBalance = account.balances.find(
-            (b: any) => b.asset_type !== 'native' && 
-            'asset_code' in b && b.asset_code === 'USDC' && 
-            'asset_issuer' in b && b.asset_issuer === usdcIssuer
+            (b) => (b.asset_type === 'credit_alphanum4' || b.asset_type === 'credit_alphanum12') && 
+            b.asset_code === 'USDC' && 
+            b.asset_issuer === usdcIssuer
         );
 
         return usdcBalance ? usdcBalance.balance : '0';
