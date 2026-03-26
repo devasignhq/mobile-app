@@ -42,7 +42,10 @@ walletRouter.get('/', async (c) => {
             eq(submissions.developerId, user.id),
             eq(submissions.status, 'pending')
         )
-    );
+    ).catch(err => {
+        console.error('[Wallet] Failed to fetch pending earnings:', err);
+        return [];
+    });
 
     // 3. Fetch USDC balance from Stellar network
     let balanceUsdc = '0';
