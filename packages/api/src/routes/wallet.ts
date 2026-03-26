@@ -31,7 +31,20 @@ walletRouter.get('/', async (c) => {
 
     const { walletAddress } = userRecord[0];
 
-    // 2. Fetch USDC balance from Stellar network
+    // 2. Start fetching pending earnings concurrently (no dependency on Stellar call)
+    const pendingEarningsPromise = db.select({
+        total: sum(bounties.amountUsdc),
+    })
+    .from(submissions)
+    .innerJoin(bounties, eq(submissions.bountyId, bounties.id))
+    .where(
+        and(
+            eq(submissions.developerId, user.id),
+            eq(submissions.status, 'pending')
+        )
+    );
+
+    // 3. Fetch USDC balance from Stellar network
     let balanceUsdc = '0';
 
     if (walletAddress) {
@@ -50,20 +63,9 @@ walletRouter.get('/', async (c) => {
         }
     }
 
-    // 3. Calculate pending earnings from in-review submissions
-    const [pendingResult] = await db.select({
-        total: sum(bounties.amountUsdc),
-    })
-    .from(submissions)
-    .innerJoin(bounties, eq(submissions.bountyId, bounties.id))
-    .where(
-        and(
-            eq(submissions.developerId, user.id),
-            eq(submissions.status, 'pending')
-        )
-    );
-
-    const pendingEarningsUsdc = pendingResult?.total ?? '0';
+    // 4. Await pending earnings result
+    const [pendingResult] = await pendingEarningsPromise;
+    const pendingEarningsUsdc = pendingResult?.total != null ? String(pendingResult.total) : '0';
 
     return c.json({
         data: {

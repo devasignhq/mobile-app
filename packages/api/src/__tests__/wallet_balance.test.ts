@@ -156,8 +156,14 @@ describe('GET /api/wallet', () => {
         const mockUserWhere = vi.fn().mockResolvedValue([{ walletAddress: 'GABCDEF123456' }]);
         const mockUserFrom = vi.fn().mockReturnValue({ where: mockUserWhere });
 
+        // Pending earnings query (fires concurrently)
+        const mockPendingWhere = vi.fn().mockResolvedValue([{ total: '50.0000000' }]);
+        const mockPendingInnerJoin = vi.fn().mockReturnValue({ where: mockPendingWhere });
+        const mockPendingFrom = vi.fn().mockReturnValue({ innerJoin: mockPendingInnerJoin });
+
         vi.mocked(db.select)
-            .mockReturnValueOnce({ from: mockUserFrom } as any);
+            .mockReturnValueOnce({ from: mockUserFrom } as any)
+            .mockReturnValueOnce({ from: mockPendingFrom } as any);
 
         mockGetUsdcBalance.mockRejectedValue(new Error('Network timeout'));
 
