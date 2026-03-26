@@ -139,16 +139,37 @@ describe('provisionWallet', () => {
         expect(mockCreateAccount).toHaveBeenCalled();
     });
 
-    it('should skip creation if account already exists on network', async () => {
-        mockLoadAccount.mockResolvedValue({ id: 'some-account' });
+    it('should skip creation but still set up trustline if account exists without one', async () => {
+        mockLoadAccount.mockResolvedValue({
+            id: 'some-account',
+            balances: [{ asset_type: 'native', balance: '3.0' }],
+        });
 
         await provisionWallet(mockUserId);
 
         // Should NOT have called createAccount
         expect(mockCreateAccount).not.toHaveBeenCalled();
         
-        // SHOULD still have set up trustline (to be safe/idempotent)
+        // SHOULD set up trustline since USDC trustline doesn't exist
         expect(mockSetupTrustline).toHaveBeenCalled();
+    });
+
+    it('should skip both creation and trustline if account is fully provisioned', async () => {
+        mockLoadAccount.mockResolvedValue({
+            id: 'some-account',
+            balances: [
+                { asset_type: 'native', balance: '3.0' },
+                { asset_type: 'credit_alphanum4', asset_code: 'USDC', asset_issuer: MOCK_USDC_ISSUER, balance: '0.0' },
+            ],
+        });
+
+        await provisionWallet(mockUserId);
+
+        // Should NOT have called createAccount
+        expect(mockCreateAccount).not.toHaveBeenCalled();
+
+        // Should NOT have called setupTrustline — already exists
+        expect(mockSetupTrustline).not.toHaveBeenCalled();
     });
 
     it('should throw if PLATFORM_ESCROW_SECRET is not set', async () => {

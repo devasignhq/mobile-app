@@ -1,6 +1,6 @@
 import { Keypair } from '@stellar/stellar-sdk';
 import { StellarClient, NetworkType } from './stellar';
-import { encryptWalletSecret } from '../utils/encryption';
+import { encryptWalletSecret, decryptWalletSecret } from '../utils/encryption';
 import { db } from '../db';
 import { users } from '../db/schema';
 import { eq } from 'drizzle-orm';
@@ -46,7 +46,6 @@ export async function provisionWallet(userId: string): Promise<string> {
     
     if (user.walletAddress && user.walletSecretEnc) {
         // Reuse existing keys
-        const { decryptWalletSecret } = await import('../utils/encryption');
         const secret = decryptWalletSecret(user.walletSecretEnc);
         keypair = Keypair.fromSecret(secret);
     } else {
@@ -67,9 +66,12 @@ export async function provisionWallet(userId: string): Promise<string> {
 
     const escrowKeypair = Keypair.fromSecret(escrowSecret);
 
+    let hasTrustline = false;
+
     // 3. Create and fund the account from platform escrow ONLY if it doesn't exist
     try {
-        await stellarClient.server.loadAccount(keypair.publicKey());
+        const account = await stellarClient.server.loadAccount(keypair.publicKey());
+        hasTrustline = account.balances.some((b: any) => b.asset_code === 'USDC' && b.asset_issuer === usdcIssuer);
         console.log(`[Wallet Provisioning] Account ${keypair.publicKey()} already exists on ${network}. Skipping creation.`);
     } catch (err: any) {
         if (err.response?.status === 404) {
@@ -81,8 +83,10 @@ export async function provisionWallet(userId: string): Promise<string> {
         }
     }
 
-    // 4. Set up USDC trustline (also idempotent in Stellar protocol if already exists, but we can check or just call it)
-    await stellarClient.setupTrustline(keypair, 'USDC', usdcIssuer);
+    // 4. Set up USDC trustline only if it doesn't already exist
+    if (!hasTrustline) {
+        await stellarClient.setupTrustline(keypair, 'USDC', usdcIssuer);
+    }
 
     console.log(`[Wallet Provisioning] Successfully provisioned/verified wallet for user ${userId}: ${keypair.publicKey()}`);
 
