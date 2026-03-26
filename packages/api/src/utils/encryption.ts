@@ -72,8 +72,9 @@ export function decryptWalletSecret(encryptedData: string): string {
     try {
         decryptedStr = decipher.update(encrypted, 'hex', 'utf8');
         decryptedStr += decipher.final('utf8');
-    } catch (e: any) {
-        throw new Error(`Failed to decrypt wallet secret. Bad key or corrupted payload. Expected failure: ${e.message}`);
+    } catch (e: unknown) {
+        const errorMessage = e instanceof Error ? e.message : 'Unknown error';
+        throw new Error(`Failed to decrypt wallet secret. Bad key or corrupted payload. Details: ${errorMessage}`);
     }
     
     return decryptedStr;
