@@ -6,6 +6,7 @@ import bounties from './routes/bounties';
 import tasks from './routes/tasks';
 import submissions from './routes/submissions';
 import disputes from './routes/disputes';
+import wallet from './routes/wallet';
 import { authMiddleware, Variables } from './middleware/auth';
 
 /**
@@ -49,6 +50,7 @@ export function createApp() {
     app.route('/api/tasks', tasks);
     app.route('/api/submissions', submissions);
     app.route('/api/disputes', disputes);
+    app.route('/api/wallet', wallet);
 
     app.post('/api/gemini', async (c) => {
         const user = c.get('user');
