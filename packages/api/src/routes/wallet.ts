@@ -1,11 +1,16 @@
 import { Hono } from 'hono';
+import { StrKey, Keypair } from '@stellar/stellar-sdk';
 import { Variables } from '../middleware/auth';
 import { db } from '../db';
 import { users, submissions, bounties, transactions } from '../db/schema';
 import { eq, and, sum, desc, sql } from 'drizzle-orm';
 import { StellarClient, NetworkType } from '../services/stellar';
+import { decryptWalletSecret } from '../utils/encryption';
 
 const walletRouter = new Hono<{ Variables: Variables }>();
+
+/** Minimum hours between consecutive withdrawals. */
+const WITHDRAWAL_COOLDOWN_HOURS = 24;
 
 /**
  * GET /api/wallet
@@ -132,6 +137,211 @@ walletRouter.get('/transactions', async (c) => {
             totalPages
         }
     });
+});
+
+/**
+ * POST /api/wallet/withdraw
+ * Processes a USDC withdrawal from the user's platform wallet to an external
+ * Stellar address. Validates balance, destination, trustline, and cooldown.
+ */
+walletRouter.post('/withdraw', async (c) => {
+    const user = c.get('user');
+    if (!user) {
+        return c.json({ error: 'Unauthorized' }, 401);
+    }
+
+    // --- 1. Validate request body ---
+    let body: { destinationAddress?: string; amount?: string };
+    try {
+        body = await c.req.json();
+    } catch {
+        return c.json({ error: 'Invalid JSON body' }, 400);
+    }
+
+    const { destinationAddress, amount } = body;
+
+    if (!destinationAddress || typeof destinationAddress !== 'string') {
+        return c.json({ error: 'destinationAddress is required' }, 400);
+    }
+
+    if (!amount || typeof amount !== 'string') {
+        return c.json({ error: 'amount is required' }, 400);
+    }
+
+    const parsedAmount = parseFloat(amount);
+    if (isNaN(parsedAmount) || parsedAmount <= 0) {
+        return c.json({ error: 'amount must be a positive number' }, 400);
+    }
+
+    // Validate max 7 decimal places (Stellar precision)
+    const decimalParts = amount.split('.');
+    if (decimalParts.length === 2 && decimalParts[1].length > 7) {
+        return c.json({ error: 'amount must have at most 7 decimal places' }, 400);
+    }
+
+    // --- 2. Fetch user record ---
+    const userRecord = await db.select({
+        walletAddress: users.walletAddress,
+        walletSecretEnc: users.walletSecretEnc,
+    })
+    .from(users)
+    .where(eq(users.id, user.id));
+
+    if (userRecord.length === 0) {
+        return c.json({ error: 'User not found' }, 404);
+    }
+
+    const { walletAddress, walletSecretEnc } = userRecord[0];
+
+    if (!walletAddress || !walletSecretEnc) {
+        return c.json({ error: 'No wallet provisioned for this account' }, 400);
+    }
+
+    // --- 3. Enforce withdrawal cooldown ---
+    const cooldownCutoff = new Date(Date.now() - WITHDRAWAL_COOLDOWN_HOURS * 60 * 60 * 1000);
+
+    const recentWithdrawals = await db.select({
+        createdAt: transactions.createdAt,
+    })
+    .from(transactions)
+    .where(
+        and(
+            eq(transactions.userId, user.id),
+            eq(transactions.type, 'withdrawal'),
+            sql`${transactions.createdAt} > ${cooldownCutoff.toISOString()}`
+        )
+    )
+    .orderBy(desc(transactions.createdAt))
+    .limit(1);
+
+    if (recentWithdrawals.length > 0) {
+        const lastWithdrawal = recentWithdrawals[0].createdAt;
+        const retryAfter = new Date(lastWithdrawal.getTime() + WITHDRAWAL_COOLDOWN_HOURS * 60 * 60 * 1000);
+        return c.json({
+            error: 'Withdrawal cooldown active. Please try again later.',
+            retryAfter: retryAfter.toISOString(),
+        }, 429);
+    }
+
+    // --- 4. Validate destination address ---
+    if (!StrKey.isValidEd25519PublicKey(destinationAddress)) {
+        return c.json({ error: 'Invalid destination Stellar address' }, 400);
+    }
+
+    // --- 5. Validate environment ---
+    const usdcIssuer = process.env.USDC_ASSET_ISSUER;
+    if (!usdcIssuer) {
+        return c.json({ error: 'USDC issuer not configured' }, 502);
+    }
+
+    const network = (process.env.STELLAR_NETWORK || 'TESTNET') as NetworkType;
+    const stellarClient = new StellarClient(network);
+
+    // --- 6. Validate destination trustline ---
+    try {
+        const destAccount = await stellarClient.server.loadAccount(destinationAddress);
+        const hasTrustline = destAccount.balances.some(
+            (b: any) =>
+                (b.asset_type === 'credit_alphanum4' || b.asset_type === 'credit_alphanum12') &&
+                b.asset_code === 'USDC' &&
+                b.asset_issuer === usdcIssuer
+        );
+        if (!hasTrustline) {
+            return c.json({ error: 'Destination account does not have a USDC trustline' }, 400);
+        }
+    } catch (error: any) {
+        if (error?.response?.status === 404) {
+            return c.json({ error: 'Destination account not found on Stellar network' }, 400);
+        }
+        console.error('[Wallet Withdraw] Failed to load destination account:', error);
+        return c.json({ error: 'Failed to validate destination account' }, 502);
+    }
+
+    // --- 7. Check sufficient balance ---
+    let currentBalance: string;
+    try {
+        currentBalance = await stellarClient.getUsdcBalance(walletAddress, usdcIssuer);
+    } catch (error) {
+        console.error('[Wallet Withdraw] Failed to fetch balance:', error);
+        return c.json({ error: 'Failed to fetch balance from Stellar network' }, 502);
+    }
+
+    if (parseFloat(currentBalance) < parsedAmount) {
+        return c.json({
+            error: 'Insufficient USDC balance',
+            available: currentBalance,
+            requested: amount,
+        }, 400);
+    }
+
+    // --- 8. Decrypt wallet secret ---
+    let sourceKeypair: Keypair;
+    try {
+        const secret = decryptWalletSecret(walletSecretEnc);
+        sourceKeypair = Keypair.fromSecret(secret);
+    } catch (error) {
+        console.error('[Wallet Withdraw] Failed to decrypt wallet secret:', error);
+        return c.json({ error: 'Failed to process wallet credentials' }, 500);
+    }
+
+    // --- 9. Create pending transaction record ---
+    const [pendingTx] = await db.insert(transactions).values({
+        userId: user.id,
+        type: 'withdrawal',
+        amountUsdc: amount,
+        status: 'pending',
+    }).returning({
+        id: transactions.id,
+        createdAt: transactions.createdAt,
+    });
+
+    // --- 10. Submit Stellar payment ---
+    try {
+        const result = await stellarClient.sendPayment(
+            sourceKeypair,
+            destinationAddress,
+            amount,
+            'USDC',
+            usdcIssuer,
+        );
+
+        const txHash = (result as any).hash || (result as any).id || null;
+
+        // Update transaction to completed
+        await db.update(transactions)
+            .set({
+                status: 'completed',
+                stellarTxHash: txHash,
+                updatedAt: new Date(),
+            })
+            .where(eq(transactions.id, pendingTx.id));
+
+        return c.json({
+            data: {
+                transactionId: pendingTx.id,
+                status: 'completed',
+                stellarTxHash: txHash,
+                amount,
+                destinationAddress,
+                createdAt: pendingTx.createdAt,
+            },
+        });
+    } catch (error) {
+        console.error('[Wallet Withdraw] Stellar payment failed:', error);
+
+        // Mark transaction as failed
+        await db.update(transactions)
+            .set({
+                status: 'failed',
+                updatedAt: new Date(),
+            })
+            .where(eq(transactions.id, pendingTx.id));
+
+        return c.json({
+            error: 'Withdrawal failed. The Stellar payment could not be processed.',
+            transactionId: pendingTx.id,
+        }, 502);
+    }
 });
 
 export default walletRouter;
