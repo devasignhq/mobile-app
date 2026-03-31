@@ -137,75 +137,93 @@ submissionsRouter.post(
         const { id } = c.req.valid('param');
         const { reason, evidenceLinks } = c.req.valid('json');
 
-        // Use transaction to ensure atomicity
-        const result = await db.transaction(async (tx) => {
-            // Check if submission exists and belongs to user
-            const [submission] = await tx
-                .select()
-                .from(submissions)
-                .where(and(
-                    eq(submissions.id, id),
-                    eq(submissions.developerId, user.id)
-                ));
+        try {
+            // Use transaction to ensure atomicity
+            const result = await db.transaction(async (tx) => {
+                // Check if submission exists and belongs to user
+                const [submission] = await tx
+                    .select()
+                    .from(submissions)
+                    .where(and(
+                        eq(submissions.id, id),
+                        eq(submissions.developerId, user.id)
+                    ));
 
-            if (!submission) {
-                return { error: 'Submission not found', status: 404 };
+                if (!submission) {
+                    return { error: 'Submission not found', status: 404 };
+                }
+
+                // Validate submission was rejected
+                if (submission.status !== 'rejected') {
+                    return {
+                        error: 'Only rejected submissions can be disputed',
+                        currentStatus: submission.status,
+                        status: 400
+                    };
+                }
+
+                // Check if dispute already exists
+                const [existingDispute] = await tx
+                    .select()
+                    .from(disputes)
+                    .where(eq(disputes.submissionId, id));
+
+                if (existingDispute) {
+                    return {
+                        error: 'Dispute already exists for this submission',
+                        disputeId: existingDispute.id,
+                        status: 409
+                    };
+                }
+
+                // Create dispute record
+                const [dispute] = await tx
+                    .insert(disputes)
+                    .values({
+                        submissionId: id,
+                        reason,
+                        evidenceLinks,
+                        status: 'open',
+                    })
+                    .returning();
+
+                // Update submission status to disputed with optimistic locking
+                const [updated] = await tx
+                    .update(submissions)
+                    .set({ status: 'disputed' })
+                    .where(and(
+                        eq(submissions.id, id),
+                        eq(submissions.status, 'rejected')
+                    ))
+                    .returning({ id: submissions.id });
+
+                if (!updated) {
+                    return {
+                        error: 'Submission was modified by another request. Please refresh and try again.',
+                        status: 409
+                    };
+                }
+
+                return { dispute, status: 201 };
+            });
+
+            if (result.error) {
+                return c.json(
+                    { error: result.error, disputeId: result.disputeId, currentStatus: result.currentStatus },
+                    result.status as 400 | 404 | 409
+                );
             }
 
-            // Validate submission was rejected
-            if (submission.status !== 'rejected') {
-                return {
-                    error: 'Only rejected submissions can be disputed',
-                    currentStatus: submission.status,
-                    status: 400
-                };
-            }
-
-            // Check if dispute already exists
-            const [existingDispute] = await tx
-                .select()
-                .from(disputes)
-                .where(eq(disputes.submissionId, id));
-
-            if (existingDispute) {
-                return {
-                    error: 'Dispute already exists for this submission',
-                    disputeId: existingDispute.id,
-                    status: 409
-                };
-            }
-
-            // Create dispute record
-            const [dispute] = await tx
-                .insert(disputes)
-                .values({
-                    submissionId: id,
-                    reason,
-                    evidenceLinks,
-                    status: 'open',
-                })
-                .returning();
-
-            // Update submission status to disputed
-            await tx
-                .update(submissions)
-                .set({ status: 'disputed' })
-                .where(eq(submissions.id, id));
-
-            return { dispute, status: 201 };
-        });
-
-        if (result.error) {
-            return c.json(
-                { error: result.error, disputeId: result.disputeId, currentStatus: result.currentStatus },
-                result.status as 400 | 404 | 409
-            );
+            return c.json({
+                data: result.dispute,
+                message: 'Dispute opened successfully',
+            }, 201);
+        } catch (error) {
+            console.error('Transaction failed:', error);
+            return c.json({
+                error: 'Failed to create dispute due to a database error. Please try again.'
+            }, 500);
         }
-
-        return c.json({
-            data: result.dispute,
-            message: 'Dispute opened successfully',
-        }, 201);
     }
 );
 
