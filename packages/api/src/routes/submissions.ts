@@ -204,6 +204,17 @@ submissionsRouter.post(
                 return { dispute, status: 201 };
             });
 
+            if ('error' in result) {
+                return c.json(
+                    {
+                        error: result.error,
+                        ...(result.disputeId && { disputeId: result.disputeId }),
+                        ...(result.currentStatus && { currentStatus: result.currentStatus })
+                    },
+                    result.status as 400 | 404 | 409
+                );
+            }
+
             return c.json({
                 data: result.dispute,
                 message: 'Dispute opened successfully',
