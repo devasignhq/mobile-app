@@ -208,8 +208,8 @@ submissionsRouter.post(
                 return c.json(
                     {
                         error: result.error,
-                        ...(result.disputeId && { disputeId: result.disputeId }),
-                        ...(result.currentStatus && { currentStatus: result.currentStatus })
+                        ...('disputeId' in result && { disputeId: result.disputeId }),
+                        ...('currentStatus' in result && { currentStatus: result.currentStatus })
                     },
                     result.status as 400 | 404 | 409
                 );
