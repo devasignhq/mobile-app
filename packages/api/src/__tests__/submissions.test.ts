@@ -294,7 +294,7 @@ describe('POST /api/submissions/:id/dispute', () => {
                 Authorization: 'Bearer valid.token',
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ evidence_links: ['not-a-url'] })
+            body: JSON.stringify({ evidenceLinks: ['not-a-url'] })
         });
 
         expect(res.status).toBe(400);
@@ -400,7 +400,7 @@ describe('POST /api/submissions/:id/dispute', () => {
                 Authorization: 'Bearer valid.token',
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ reason: 'Unfair rejection', evidence_links: ['https://example.com'] })
+            body: JSON.stringify({ reason: 'Unfair rejection', evidenceLinks: ['https://example.com'] })
         });
 
         expect(res.status).toBe(201);
