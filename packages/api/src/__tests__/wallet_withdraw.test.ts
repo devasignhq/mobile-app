@@ -41,19 +41,19 @@ function createSelectChain(result: any[]) {
     // Every method returns `chain` to allow arbitrary chaining, except
     // terminal methods (where/limit/offset) which may be the last in chain
     // and need to resolve. We can't know which is last, so each one both
-    // continues the chain AND is thennable.
-    const methods = ['from', 'innerJoin', 'leftJoin', 'where', 'orderBy', 'limit', 'offset'];
+    const methods = ['from', 'innerJoin', 'leftJoin', 'where', 'orderBy', 'limit', 'offset', 'for'];
     for (const m of methods) {
         chain[m] = vi.fn((..._args: any[]) => chain);
     }
     // Make chain thennable so `await` works at any point in the chain
     chain.then = (resolve_: any, reject_: any) => Promise.resolve(result).then(resolve_, reject_);
     chain.catch = (fn: any) => Promise.resolve(result).catch(fn);
+    chain.catch = (fn: any) => Promise.resolve(result).catch(fn);
     return chain;
 }
 
-vi.mock('../db', () => ({
-    db: {
+vi.mock('../db', () => {
+    const mockDb: any = {
         select: vi.fn((..._args: any[]) => {
             const idx = selectCallIndex++;
             const result = selectResults[idx] ?? [];
@@ -67,8 +67,10 @@ vi.mock('../db', () => ({
         update: vi.fn(() => ({
             set: mockUpdateSet,
         })),
-    },
-}));
+    };
+    mockDb.transaction = vi.fn(async (cb: any) => cb(mockDb));
+    return { db: mockDb };
+});
 
 // Mock StellarClient
 vi.mock('../services/stellar', () => ({
@@ -217,8 +219,10 @@ describe('POST /api/wallet/withdraw', () => {
     it('should return 429 when withdrawal cooldown is active', async () => {
         const recentDate = new Date(Date.now() - 2 * 60 * 60 * 1000); // 2 hours ago
         selectResults = [
-            [{ walletAddress: testKeypair.publicKey(), walletSecretEnc: 'enc-secret' }], // user
-            [{ createdAt: recentDate }], // recent withdrawal
+            [{ walletAddress: testKeypair.publicKey(), walletSecretEnc: 'enc-secret' }], // user record (step 2)
+            [{ id: 'user-id' }], // for update lock
+            [], // active Pending
+            [{ createdAt: recentDate }], // recent withdrawal (step 4)
         ];
 
         const res = await makeRequest(app, { destinationAddress: validDestination, amount: '10' });
@@ -233,7 +237,9 @@ describe('POST /api/wallet/withdraw', () => {
     it('should return 400 for invalid destination Stellar address', async () => {
         selectResults = [
             [{ walletAddress: testKeypair.publicKey(), walletSecretEnc: 'enc-secret' }],
-            [], // no cooldown
+            [{ id: 'user-id' }],
+            [], 
+            []
         ];
 
         const res = await makeRequest(app, { destinationAddress: 'INVALID_ADDRESS', amount: '10' });
@@ -247,6 +253,8 @@ describe('POST /api/wallet/withdraw', () => {
     it('should return 400 when destination has no USDC trustline', async () => {
         selectResults = [
             [{ walletAddress: testKeypair.publicKey(), walletSecretEnc: 'enc-secret' }],
+            [{ id: 'user-id' }],
+            [],
             [],
         ];
 
@@ -265,6 +273,8 @@ describe('POST /api/wallet/withdraw', () => {
     it('should return 400 when destination account does not exist', async () => {
         selectResults = [
             [{ walletAddress: testKeypair.publicKey(), walletSecretEnc: 'enc-secret' }],
+            [{ id: 'user-id' }],
+            [],
             [],
         ];
 
@@ -281,6 +291,8 @@ describe('POST /api/wallet/withdraw', () => {
     it('should return 400 when balance is insufficient', async () => {
         selectResults = [
             [{ walletAddress: testKeypair.publicKey(), walletSecretEnc: 'enc-secret' }],
+            [{ id: 'user-id' }],
+            [],
             [],
         ];
 
@@ -296,9 +308,11 @@ describe('POST /api/wallet/withdraw', () => {
 
     // ──────────────── STELLAR PAYMENT FAILURE ───────────────────────
 
-    it('should return 502 and mark transaction as failed when Stellar payment fails', async () => {
+    it('should return 502 and mark transaction as pending_verification for ambiguous failure', async () => {
         selectResults = [
             [{ walletAddress: testKeypair.publicKey(), walletSecretEnc: 'enc-secret' }],
+            [{ id: 'user-id' }],
+            [],
             [],
         ];
 
@@ -306,6 +320,26 @@ describe('POST /api/wallet/withdraw', () => {
 
         const res = await makeRequest(app, { destinationAddress: validDestination, amount: '10' });
         expect(res.status).toBe(502);
+        const body = await res.json();
+        expect(body.error).toContain('Withdrawal submission timed out');
+        expect(body.transactionId).toBe('tx-123');
+        expect(body.status).toBe('pending_verification');
+    });
+
+    it('should return 400 and mark transaction as failed when Stellar payment fails unambiguously', async () => {
+        selectResults = [
+            [{ walletAddress: testKeypair.publicKey(), walletSecretEnc: 'enc-secret' }],
+            [{ id: 'user-id' }],
+            [],
+            [],
+        ];
+
+        const err: any = new Error('Bad request');
+        err.response = { status: 400 };
+        mockSendPayment.mockRejectedValue(err);
+
+        const res = await makeRequest(app, { destinationAddress: validDestination, amount: '10' });
+        expect(res.status).toBe(400);
         const body = await res.json();
         expect(body.error).toContain('Withdrawal failed');
         expect(body.transactionId).toBe('tx-123');
@@ -316,6 +350,8 @@ describe('POST /api/wallet/withdraw', () => {
     it('should process a successful withdrawal and return 200', async () => {
         selectResults = [
             [{ walletAddress: testKeypair.publicKey(), walletSecretEnc: 'enc-secret' }],
+            [{ id: 'user-id' }],
+            [],
             [],
         ];
         const txCreatedAt = new Date();

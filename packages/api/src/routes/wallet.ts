@@ -3,7 +3,7 @@ import { StrKey, Keypair } from '@stellar/stellar-sdk';
 import { Variables } from '../middleware/auth';
 import { db } from '../db';
 import { users, submissions, bounties, transactions } from '../db/schema';
-import { eq, and, sum, desc, sql } from 'drizzle-orm';
+import { eq, and, sum, desc, sql, gt } from 'drizzle-orm';
 import { StellarClient, NetworkType } from '../services/stellar';
 import { decryptWalletSecret } from '../utils/encryption';
 
@@ -168,7 +168,7 @@ walletRouter.post('/withdraw', async (c) => {
         return c.json({ error: 'amount is required' }, 400);
     }
 
-    const parsedAmount = parseFloat(amount);
+    const parsedAmount = Number(amount);
     if (isNaN(parsedAmount) || parsedAmount <= 0) {
         return c.json({ error: 'amount must be a positive number' }, 400);
     }
@@ -197,40 +197,98 @@ walletRouter.post('/withdraw', async (c) => {
         return c.json({ error: 'No wallet provisioned for this account' }, 400);
     }
 
-    // --- 3. Enforce withdrawal cooldown ---
-    const cooldownCutoff = new Date(Date.now() - WITHDRAWAL_COOLDOWN_HOURS * 60 * 60 * 1000);
-
-    const recentWithdrawals = await db.select({
-        createdAt: transactions.createdAt,
-    })
-    .from(transactions)
-    .where(
-        and(
-            eq(transactions.userId, user.id),
-            eq(transactions.type, 'withdrawal'),
-            sql`${transactions.createdAt} > ${cooldownCutoff.toISOString()}`
-        )
-    )
-    .orderBy(desc(transactions.createdAt))
-    .limit(1);
-
-    if (recentWithdrawals.length > 0) {
-        const lastWithdrawal = recentWithdrawals[0].createdAt;
-        const retryAfter = new Date(lastWithdrawal.getTime() + WITHDRAWAL_COOLDOWN_HOURS * 60 * 60 * 1000);
-        return c.json({
-            error: 'Withdrawal cooldown active. Please try again later.',
-            retryAfter: retryAfter.toISOString(),
-        }, 429);
-    }
-
-    // --- 4. Validate destination address ---
+    // --- 3. Validate destination address ---
     if (!StrKey.isValidEd25519PublicKey(destinationAddress)) {
         return c.json({ error: 'Invalid destination Stellar address' }, 400);
     }
 
+    if (destinationAddress === walletAddress) {
+        return c.json({ error: 'Cannot withdraw to your own platform wallet' }, 400);
+    }
+
+    // --- 4. Enforce withdrawal cooldown & create pending transaction ---
+    let pendingTx;
+    try {
+        pendingTx = await db.transaction(async (tx) => {
+            // Lock user record to serialize concurrent requests
+            await tx.select({ id: users.id })
+                .from(users)
+                .where(eq(users.id, user.id))
+                .for('update');
+                
+            // Check for any active pending withdrawals to prevent overlapping
+            const activePending = await tx.select({ id: transactions.id })
+                .from(transactions)
+                .where(and(
+                    eq(transactions.userId, user.id),
+                    eq(transactions.type, 'withdrawal'),
+                    eq(transactions.status, 'pending')
+                ))
+                .limit(1);
+                
+            if (activePending.length > 0) {
+                throw new Error('PENDING_EXISTS');
+            }
+
+            // Verify cooldown under lock
+            const cooldownCutoff = new Date(Date.now() - WITHDRAWAL_COOLDOWN_HOURS * 60 * 60 * 1000);
+            const recentWithdrawals = await tx.select({
+                createdAt: transactions.createdAt,
+            })
+            .from(transactions)
+            .where(
+                and(
+                    eq(transactions.userId, user.id),
+                    eq(transactions.type, 'withdrawal'),
+                    gt(transactions.createdAt, cooldownCutoff)
+                )
+            )
+            .orderBy(desc(transactions.createdAt))
+            .limit(1);
+
+            if (recentWithdrawals.length > 0) {
+                const lastWithdrawal = recentWithdrawals[0].createdAt;
+                const retryAfter = new Date(lastWithdrawal.getTime() + WITHDRAWAL_COOLDOWN_HOURS * 60 * 60 * 1000);
+                throw new Error(`COOLDOWN:${retryAfter.toISOString()}`);
+            }
+
+            // Insert pending transaction record
+            const [insertedTx] = await tx.insert(transactions).values({
+                userId: user.id,
+                type: 'withdrawal',
+                amountUsdc: amount,
+                status: 'pending',
+            }).returning({
+                id: transactions.id,
+                createdAt: transactions.createdAt,
+            });
+            
+            return insertedTx;
+        });
+    } catch (error: any) {
+        if (error.message === 'PENDING_EXISTS') {
+            return c.json({ error: 'You already have a pending withdrawal. Please wait for it to complete.' }, 409);
+        }
+        if (error.message.startsWith('COOLDOWN:')) {
+            return c.json({
+                error: 'Withdrawal cooldown active. Please try again later.',
+                retryAfter: error.message.split(':')[1],
+            }, 429);
+        }
+        throw error;
+    }
+
+    // Helper to gracefully fail the pending transaction on validation error
+    const completeAsFailed = async () => {
+        await db.update(transactions)
+            .set({ status: 'failed', updatedAt: new Date() })
+            .where(eq(transactions.id, pendingTx.id));
+    };
+
     // --- 5. Validate environment ---
     const usdcIssuer = process.env.USDC_ASSET_ISSUER;
     if (!usdcIssuer) {
+        await completeAsFailed();
         return c.json({ error: 'USDC issuer not configured' }, 502);
     }
 
@@ -247,9 +305,11 @@ walletRouter.post('/withdraw', async (c) => {
                 b.asset_issuer === usdcIssuer
         );
         if (!hasTrustline) {
+            await completeAsFailed();
             return c.json({ error: 'Destination account does not have a USDC trustline' }, 400);
         }
     } catch (error: any) {
+        await completeAsFailed();
         if (error?.response?.status === 404) {
             return c.json({ error: 'Destination account not found on Stellar network' }, 400);
         }
@@ -262,11 +322,13 @@ walletRouter.post('/withdraw', async (c) => {
     try {
         currentBalance = await stellarClient.getUsdcBalance(walletAddress, usdcIssuer);
     } catch (error) {
+        await completeAsFailed();
         console.error('[Wallet Withdraw] Failed to fetch balance:', error);
         return c.json({ error: 'Failed to fetch balance from Stellar network' }, 502);
     }
 
     if (parseFloat(currentBalance) < parsedAmount) {
+        await completeAsFailed();
         return c.json({
             error: 'Insufficient USDC balance',
             available: currentBalance,
@@ -280,20 +342,10 @@ walletRouter.post('/withdraw', async (c) => {
         const secret = decryptWalletSecret(walletSecretEnc);
         sourceKeypair = Keypair.fromSecret(secret);
     } catch (error) {
+        await completeAsFailed();
         console.error('[Wallet Withdraw] Failed to decrypt wallet secret:', error);
         return c.json({ error: 'Failed to process wallet credentials' }, 500);
     }
-
-    // --- 9. Create pending transaction record ---
-    const [pendingTx] = await db.insert(transactions).values({
-        userId: user.id,
-        type: 'withdrawal',
-        amountUsdc: amount,
-        status: 'pending',
-    }).returning({
-        id: transactions.id,
-        createdAt: transactions.createdAt,
-    });
 
     // --- 10. Submit Stellar payment ---
     try {
@@ -326,21 +378,25 @@ walletRouter.post('/withdraw', async (c) => {
                 createdAt: pendingTx.createdAt,
             },
         });
-    } catch (error) {
+    } catch (error: any) {
         console.error('[Wallet Withdraw] Stellar payment failed:', error);
 
-        // Mark transaction as failed
-        await db.update(transactions)
-            .set({
-                status: 'failed',
-                updatedAt: new Date(),
-            })
-            .where(eq(transactions.id, pendingTx.id));
+        const isAmbiguous = !error.response || error.response?.status >= 500;
+
+        if (isAmbiguous) {
+            return c.json({
+                error: 'Withdrawal submission timed out or is unknown. It may still complete.',
+                transactionId: pendingTx.id,
+                status: 'pending_verification'
+            }, 502);
+        }
+
+        await completeAsFailed();
 
         return c.json({
             error: 'Withdrawal failed. The Stellar payment could not be processed.',
             transactionId: pendingTx.id,
-        }, 502);
+        }, 400);
     }
 });
 
