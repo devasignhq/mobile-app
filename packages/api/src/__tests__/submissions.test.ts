@@ -543,7 +543,8 @@ describe('POST /api/submissions/:id/approve', () => {
         const mockUpdateSet = vi.fn().mockReturnValue({ where: mockUpdateWhere });
         const mockUpdate = vi.fn().mockReturnValue({ set: mockUpdateSet });
 
-        const mockInsertValues = vi.fn().mockResolvedValue([{ id: 'mock-tx-id' }]);
+        const mockInsertReturning = vi.fn().mockResolvedValue([{ id: 'mock-tx-id' }]);
+        const mockInsertValues = vi.fn().mockReturnValue({ returning: mockInsertReturning });
         const mockInsert = vi.fn().mockReturnValue({ values: mockInsertValues });
 
         db.transaction = vi.fn().mockImplementation(async (cb) => {

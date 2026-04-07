@@ -1,4 +1,4 @@
-import { Horizon, Keypair, Networks, TransactionBuilder, Asset, Operation } from '@stellar/stellar-sdk';
+import { Horizon, Keypair, Networks, TransactionBuilder, Asset, Operation, Memo } from '@stellar/stellar-sdk';
 
 export type NetworkType = 'TESTNET' | 'PUBLIC';
 
@@ -86,7 +86,7 @@ export class StellarClient {
     /**
      * Sends a payment using a specific asset or XLM (if asset is null).
      */
-    async sendPayment(sourceKeypair: Keypair, destinationPublicKey: string, amount: string, assetCode?: string, issuerPublicKey?: string) {
+    async sendPayment(sourceKeypair: Keypair, destinationPublicKey: string, amount: string, assetCode?: string, issuerPublicKey?: string, memoText?: string) {
         const sourceAccount = await this.server.loadAccount(sourceKeypair.publicKey());
         let asset = Asset.native();
         
@@ -94,7 +94,7 @@ export class StellarClient {
             asset = new Asset(assetCode, issuerPublicKey);
         }
 
-        const transaction = new TransactionBuilder(sourceAccount, {
+        let builder = new TransactionBuilder(sourceAccount, {
             fee: String(await this.server.fetchBaseFee()),
             networkPassphrase: this.networkPassphrase,
         })
@@ -105,8 +105,13 @@ export class StellarClient {
                     amount,
                 })
             )
-            .setTimeout(30)
-            .build();
+            .setTimeout(30);
+
+        if (memoText) {
+            builder = builder.addMemo(Memo.text(memoText));
+        }
+
+        const transaction = builder.build();
 
         transaction.sign(sourceKeypair);
         return await this.server.submitTransaction(transaction);

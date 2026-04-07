@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { orchestratePayout } from '../services/payout';
 import { Variables } from '../middleware/auth';
 import { db } from '../db';
 import { bounties, submissions, disputes, transactions } from '../db/schema';
@@ -226,6 +227,8 @@ submissionsRouter.post(
 
         // Use a transaction to mark the submission as approved and create a payout transaction.
         try {
+            let newlyCreatedTransactionId: string | undefined;
+
             await db.transaction(async (tx) => {
                 const updated = await tx.update(submissions)
                     .set({ status: 'approved' })
@@ -240,19 +243,29 @@ submissionsRouter.post(
                 }
 
                 // Create a payment transaction
-                await tx.insert(transactions).values({
+                const [txData] = await tx.insert(transactions).values({
                     userId: submission.developerId,
                     type: 'bounty_payout',
                     amountUsdc: bounty.amountUsdc,
                     bountyId: bounty.id,
                     status: 'pending'
-                });
+                }).returning({ id: transactions.id });
                 
+                newlyCreatedTransactionId = txData.id;
+
                 // Update the bounty status to completed
                 await tx.update(bounties)
                     .set({ status: 'completed' })
                     .where(eq(bounties.id, bounty.id));
             });
+
+            // Trigger the payout orchestration asynchronously
+            if (newlyCreatedTransactionId) {
+                // Ensure you add `import { orchestratePayout } from '../services/payout';` at the top of the file
+                orchestratePayout(newlyCreatedTransactionId, submission.developerId, bounty.amountUsdc).catch((err: unknown) => {
+                    console.error('[Payout Orchestration] Unhandled error:', err);
+                });
+            }
 
             return c.json({ message: 'Submission approved and payment triggered successfully' }, 200);
         } catch (error) {
