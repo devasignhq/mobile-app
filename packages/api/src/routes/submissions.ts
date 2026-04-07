@@ -226,6 +226,8 @@ submissionsRouter.post(
 
         // Use a transaction to mark the submission as approved and create a payout transaction.
         try {
+            let newlyCreatedTransactionId: string | undefined;
+
             await db.transaction(async (tx) => {
                 const updated = await tx.update(submissions)
                     .set({ status: 'approved' })
@@ -240,19 +242,31 @@ submissionsRouter.post(
                 }
 
                 // Create a payment transaction
-                await tx.insert(transactions).values({
+                const [txData] = await tx.insert(transactions).values({
                     userId: submission.developerId,
                     type: 'bounty_payout',
                     amountUsdc: bounty.amountUsdc,
                     bountyId: bounty.id,
                     status: 'pending'
-                });
+                }).returning({ id: transactions.id });
                 
+                newlyCreatedTransactionId = txData.id;
+
                 // Update the bounty status to completed
                 await tx.update(bounties)
                     .set({ status: 'completed' })
                     .where(eq(bounties.id, bounty.id));
             });
+
+            // Trigger the payout orchestration asynchronously
+            if (newlyCreatedTransactionId) {
+                // We do not await this purposely, let it run in the background
+                import('../services/payout').then(({ orchestratePayout }) => {
+                    orchestratePayout(newlyCreatedTransactionId!, submission.developerId, bounty.amountUsdc);
+                }).catch(err => {
+                    console.error('[Payout Orchestration] Error importing payout service:', err);
+                });
+            }
 
             return c.json({ message: 'Submission approved and payment triggered successfully' }, 200);
         } catch (error) {
