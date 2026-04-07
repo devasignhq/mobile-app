@@ -96,6 +96,8 @@ async function executeStellarPayment(developerId: string, amountUsdc: string, tr
     const escrowKeypair = Keypair.fromSecret(escrowSecret);
     const destinationPublicKey = user.walletAddress;
 
+    const memoText = transactionId.substring(0, 28);
+
     // Check if a payment with this transaction ID as memo has already been executed to this developer
     const existingTxs = await stellarClient.server.transactions()
         .forAccount(destinationPublicKey)
@@ -103,13 +105,13 @@ async function executeStellarPayment(developerId: string, amountUsdc: string, tr
         .limit(20)
         .call();
 
-    const alreadySentTx = existingTxs.records.find(tx => tx.memo === transactionId);
+    const alreadySentTx = existingTxs.records.find(tx => tx.memo === memoText);
     if (alreadySentTx) {
         console.log(`[Payout Orchestration] Idempotency: Found existing Stellar transaction for ${transactionId}`);
         return alreadySentTx.hash;
     }
 
-    const result = await stellarClient.sendPayment(escrowKeypair, destinationPublicKey, amountUsdc, 'USDC', usdcIssuer, transactionId);
+    const result = await stellarClient.sendPayment(escrowKeypair, destinationPublicKey, amountUsdc, 'USDC', usdcIssuer, memoText);
     return result.hash;
 }
 
@@ -129,7 +131,17 @@ export async function startPayoutSweeper() {
                 // If it's old enough (e.g., more than 5 minutes since creation), sweep it
                 if (Date.now() - new Date(tx.createdAt).getTime() > 5 * 60 * 1000) {
                     console.log(`[Payout Sweeper] Recovering pending payout ${tx.id}`);
-                    await orchestratePayout(tx.id, tx.userId, String(tx.amountUsdc));
+                    const updated = await db.update(transactions)
+                        .set({ status: 'pending_verification' })
+                        .where(and(
+                            eq(transactions.id, tx.id),
+                            eq(transactions.status, 'pending')
+                        ))
+                        .returning();
+                        
+                    if (updated.length > 0) {
+                        await orchestratePayout(tx.id, tx.userId, String(tx.amountUsdc));
+                    }
                 }
             }
         } catch (err) {
