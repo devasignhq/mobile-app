@@ -85,6 +85,9 @@ const port = Number(process.env.PORT) || 3001;
 
 console.log(`Server is running on http://localhost:${port}`);
 
+import { startPayoutSweeper } from './services/payout';
+startPayoutSweeper();
+
 serve({
     fetch: app.fetch,
     port

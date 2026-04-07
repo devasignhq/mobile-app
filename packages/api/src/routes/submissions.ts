@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { orchestratePayout } from '../services/payout';
 import { Variables } from '../middleware/auth';
 import { db } from '../db';
 import { bounties, submissions, disputes, transactions } from '../db/schema';
@@ -260,11 +261,9 @@ submissionsRouter.post(
 
             // Trigger the payout orchestration asynchronously
             if (newlyCreatedTransactionId) {
-                // We do not await this purposely, let it run in the background
-                import('../services/payout').then(({ orchestratePayout }) => {
-                    orchestratePayout(newlyCreatedTransactionId!, submission.developerId, bounty.amountUsdc);
-                }).catch(err => {
-                    console.error('[Payout Orchestration] Error importing payout service:', err);
+                // Ensure you add `import { orchestratePayout } from '../services/payout';` at the top of the file
+                orchestratePayout(newlyCreatedTransactionId, submission.developerId, bounty.amountUsdc).catch((err: unknown) => {
+                    console.error('[Payout Orchestration] Unhandled error:', err);
                 });
             }
 

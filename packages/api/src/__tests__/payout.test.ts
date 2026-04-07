@@ -35,10 +35,20 @@ vi.mock('../db', () => ({
 
 // Mock StellarClient
 const mockSendPayment = vi.fn();
+const mockCall = vi.fn().mockResolvedValue({ records: [] });
+const mockLimit = vi.fn().mockReturnValue({ call: mockCall });
+const mockOrder = vi.fn().mockReturnValue({ limit: mockLimit });
+const mockForAccount = vi.fn().mockReturnValue({ order: mockOrder });
+
 vi.mock('../services/stellar', () => {
     return {
         StellarClient: class {
             sendPayment = mockSendPayment;
+            server = {
+                transactions: () => ({
+                    forAccount: mockForAccount
+                })
+            }
         }
     };
 });
@@ -82,13 +92,13 @@ describe('orchestratePayout', () => {
             .mockRejectedValueOnce(new Error('Network Error'))
             .mockResolvedValueOnce({ hash: 'stellar-hash-456' });
 
-        // Temporarily redefine setTimeout for the test so we don't wait 1000ms
-        const originalSetTimeout = global.setTimeout;
-        (global as any).setTimeout = vi.fn((cb) => cb());
+        vi.useFakeTimers();
 
-        await orchestratePayout('tx-2', 'dev-1', '50.00');
+        const payoutPromise = orchestratePayout('tx-2', 'dev-1', '50.00');
+        await vi.runAllTimersAsync();
+        await payoutPromise;
 
-        global.setTimeout = originalSetTimeout;
+        vi.useRealTimers();
 
         expect(mockSendPayment).toHaveBeenCalledTimes(2);
         expect(mockSet).toHaveBeenCalledWith({
@@ -106,13 +116,13 @@ describe('orchestratePayout', () => {
 
         mockSendPayment.mockRejectedValue(new Error('Permanent Network Error'));
 
-        // Temporarily redefine setTimeout so tests run fast
-        const originalSetTimeout = global.setTimeout;
-        (global as any).setTimeout = vi.fn((cb) => cb());
+        vi.useFakeTimers();
 
-        await orchestratePayout('tx-3', 'dev-1', '50.00');
+        const payoutPromise = orchestratePayout('tx-3', 'dev-1', '50.00');
+        await vi.runAllTimersAsync();
+        await payoutPromise;
 
-        global.setTimeout = originalSetTimeout;
+        vi.useRealTimers();
 
         expect(mockSendPayment).toHaveBeenCalledTimes(3);
         expect(mockSet).toHaveBeenCalledWith({

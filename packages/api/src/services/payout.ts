@@ -2,7 +2,7 @@ import { Keypair } from '@stellar/stellar-sdk';
 import { StellarClient, NetworkType } from './stellar';
 import { db } from '../db';
 import { transactions, users } from '../db/schema';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 
 const MAX_RETRIES = 3;
 const INITIAL_BACKOFF_MS = 1000; // 1 second
@@ -33,7 +33,7 @@ export async function orchestratePayout(transactionId: string, developerId: stri
                     await new Promise(resolve => setTimeout(resolve, delay));
                 }
 
-                stellarTxHash = await executeStellarPayment(developerId, amountUsdc);
+                stellarTxHash = await executeStellarPayment(developerId, amountUsdc, transactionId);
                 success = true;
             } catch (error: any) {
                 attempt++;
@@ -71,7 +71,7 @@ export async function orchestratePayout(transactionId: string, developerId: stri
 /**
  * Wraps the StellarClient call to actually send the funds from Platform Escrow.
  */
-async function executeStellarPayment(developerId: string, amountUsdc: string): Promise<string> {
+async function executeStellarPayment(developerId: string, amountUsdc: string, transactionId: string): Promise<string> {
     const escrowSecret = process.env.PLATFORM_ESCROW_SECRET;
     if (!escrowSecret) {
         throw new Error('PLATFORM_ESCROW_SECRET environment variable is not set');
@@ -96,6 +96,44 @@ async function executeStellarPayment(developerId: string, amountUsdc: string): P
     const escrowKeypair = Keypair.fromSecret(escrowSecret);
     const destinationPublicKey = user.walletAddress;
 
-    const result = await stellarClient.sendPayment(escrowKeypair, destinationPublicKey, amountUsdc, 'USDC', usdcIssuer);
+    // Check if a payment with this transaction ID as memo has already been executed to this developer
+    const existingTxs = await stellarClient.server.transactions()
+        .forAccount(destinationPublicKey)
+        .order('desc')
+        .limit(20)
+        .call();
+
+    const alreadySentTx = existingTxs.records.find(tx => tx.memo === transactionId);
+    if (alreadySentTx) {
+        console.log(`[Payout Orchestration] Idempotency: Found existing Stellar transaction for ${transactionId}`);
+        return alreadySentTx.hash;
+    }
+
+    const result = await stellarClient.sendPayment(escrowKeypair, destinationPublicKey, amountUsdc, 'USDC', usdcIssuer, transactionId);
     return result.hash;
+}
+
+export async function startPayoutSweeper() {
+    console.log('[Payout Sweeper] initialized');
+    // Run every 5 minutes
+    setInterval(async () => {
+        try {
+            const pendingPayouts = await db.query.transactions.findMany({
+                where: and(
+                    eq(transactions.type, 'bounty_payout'),
+                    eq(transactions.status, 'pending')
+                )
+            });
+
+            for (const tx of pendingPayouts) {
+                // If it's old enough (e.g., more than 5 minutes since creation), sweep it
+                if (Date.now() - new Date(tx.createdAt).getTime() > 5 * 60 * 1000) {
+                    console.log(`[Payout Sweeper] Recovering pending payout ${tx.id}`);
+                    await orchestratePayout(tx.id, tx.userId, String(tx.amountUsdc));
+                }
+            }
+        } catch (err) {
+            console.error('[Payout Sweeper] Error sweeping pending payouts:', err);
+        }
+    }, 5 * 60 * 1000);
 }
