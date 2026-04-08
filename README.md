@@ -14,14 +14,15 @@
 <br/>
 
 <div align="center">
-    <a href="https://github.com/devasignhq/contributor-app?tab=Apache-2.0-1-ov-file">
-  <img src="https://img.shields.io/github/license/devasignhq/contributor-app" alt="License">
-<a href="https://GitHub.com/devasignhq/contributor-app/graphs/contributors">
-  <img src="https://img.shields.io/github/contributors/devasignhq/contributor-app" alt="GitHub Contributors">
-</a>
-<a href="https://devasign.com">
-  <img src="https://img.shields.io/badge/Visit-devasign.com-orange" alt="Visit devasign.com">
-</a>
+  <a href="https://github.com/devasignhq/mobile-app?tab=Apache-2.0-1-ov-file">
+    <img src="https://img.shields.io/github/license/devasignhq/mobile-app" alt="License">
+  </a>
+  <a href="https://github.com/devasignhq/mobile-app/graphs/contributors">
+    <img src="https://img.shields.io/github/contributors/devasignhq/mobile-app" alt="GitHub Contributors">
+  </a>
+  <a href="https://devasign.com">
+    <img src="https://img.shields.io/badge/Visit-devasign.com-orange" alt="Visit devasign.com">
+  </a>
 </div>
 <div>
   <p align="center">
@@ -39,8 +40,8 @@
   
   **Join our stargazers :)** 
 
-  <a href="https://github.com/devasignhq/contributor-app">
-    <img src="https://img.shields.io/github/stars/devasignhq?style=social&label=Star&maxAge=2592000" alt="GitHub stars">
+  <a href="https://github.com/devasignhq/mobile-app">
+    <img src="https://img.shields.io/github/stars/devasignhq/mobile-app?style=social&label=Star&maxAge=2592000" alt="GitHub stars">
   </a>
 
   </div>
@@ -58,7 +59,7 @@ DevAsign Mobile App is a modern, mobile-first web application designed for devel
 - **Wallet & Earnings**: Monitor your earnings, view transaction history, and manage your wallet.
 - **In-App Messaging**: Communicate with task creators and other developers.
 - **Notifications**: Stay updated with real-time alerts for task updates and messages.
-- **User Profile**: manageable profile and settings.
+- **User Profile**: Manage your profile and settings.
 
 ### Tech Stack
 
@@ -84,8 +85,8 @@ Follow these steps to set up and run the project locally.
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/bishopBethel/devasign-mobile-app.git
-   cd devasign-mobile-app
+   git clone https://github.com/devasignhq/mobile-app.git
+   cd mobile-app
    ```
 
 2. Install dependencies:
@@ -127,20 +128,24 @@ The API automatically composes `DATABASE_URL` from the individual `POSTGRES_*` v
 
 #### Running the App
 
-Start the development server:
+Start the development server from the repo root (runs the mobile app and API together):
 
 ```bash
-npm run dev
+pnpm dev
 ```
 
-The application will be available at `http://localhost:5173` (or the port shown in your terminal).
+The web UI is usually at `http://localhost:5173` (Vite prints the exact URL in the terminal). To run only the frontend:
+
+```bash
+pnpm --filter @devasign/mobile dev
+```
 
 ## Building for Production
 
-To build the application for production:
+To build all packages for production:
 
 ```bash
-npm run build
+pnpm build
 ```
 
-This will generate the optimized files in the `dist` directory.
+Each package writes its output under its own `dist` directory (for example `packages/mobile/dist` for the Vite app).
