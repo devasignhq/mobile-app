@@ -6,6 +6,30 @@ import { bounties, users, applications } from '../db/schema';
 import { eq, and, gte, lte, sql, desc, or, lt, count } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import { z } from 'zod';
+import { getCached, setCache, deleteCachePattern } from '../services/redis';
+
+// Cache TTLs in seconds
+const BOUNTY_LIST_CACHE_TTL = 30;   // 30 seconds for paginated listing
+const BOUNTY_LIST_USER_TTL = 15 * 60; // 15 minutes for user-specific filtered listing
+
+// Build a deterministic cache key from query params
+function getBountyListCacheKey(query: Record<string, string | string[] | undefined>, userId?: string): string {
+    const params = new URLSearchParams();
+    // Normalize params deterministically
+    const sortedKeys = Object.keys(query).sort();
+    for (const key of sortedKeys) {
+        const val = query[key];
+        if (val !== undefined && val !== '') {
+            if (Array.isArray(val)) {
+                for (const v of val) params.append(key, v);
+            } else {
+                params.append(key, val);
+            }
+        }
+    }
+    const qstr = params.toString();
+    return userId ? `bounty:list:${userId}:${qstr}` : `bounty:list:anon:${qstr}`;
+}
 
 const applySchema = z.object({
     cover_letter: z.string().trim().min(1, 'cover_letter is required and must be a non-empty string'),
@@ -42,6 +66,15 @@ bountiesRouter.get('/', async (c) => {
 
     if (status && !allowedStatuses.includes(status)) {
         return c.json({ error: `Invalid status. Allowed values are: ${allowedStatuses.join(', ')}` }, 400);
+    }
+
+    // Check Redis cache (only for first page, no cursor)
+    if (!cursor) {
+        const cacheKey = getBountyListCacheKey(query);
+        const cached = await getCached<{ data: any[]; meta: any }>(cacheKey);
+        if (cached) {
+            return c.json(cached);
+        }
     }
 
     let whereClause = undefined;
@@ -120,14 +153,22 @@ bountiesRouter.get('/', async (c) => {
         })).toString('base64');
     }
 
-    return c.json({
+    const response = {
         data,
         meta: {
             next_cursor: nextCursor,
             has_more: hasMore,
             count: data.length,
         },
-    });
+    };
+
+    // Cache the response (only first page, no cursor)
+    if (!cursor) {
+        const cacheKey = getBountyListCacheKey(query);
+        await setCache(cacheKey, response, BOUNTY_LIST_CACHE_TTL);
+    }
+
+    return c.json(response);
 });
 
 /**
@@ -333,6 +374,9 @@ bountiesRouter.patch('/:id', ensureBountyCreator('id'), async (c) => {
         })
         .where(eq(bounties.id, id));
 
+    // Invalidate bounty listing cache
+    await deleteCachePattern('bounty:list:*');
+
     return c.json({ success: true, message: 'Bounty updated' });
 });
 
@@ -349,6 +393,9 @@ bountiesRouter.post('/:id/complete', ensureBountyAssignee('id'), async (c) => {
             updatedAt: new Date(),
         })
         .where(eq(bounties.id, id));
+
+    // Invalidate bounty listing cache
+    await deleteCachePattern('bounty:list:*');
 
     return c.json({ success: true, message: 'Bounty submitted for review' });
 });
