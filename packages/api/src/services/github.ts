@@ -140,7 +140,8 @@ export class GitHubService {
         
         let repos: any[] = [];
         try {
-            repos = await client.paginate<any>('/user/repos?per_page=100&sort=pushed');
+            const { data } = await client.request<any[]>('/user/repos?per_page=100&sort=pushed');
+            repos = data || [];
         } catch (error) {
             console.error('Failed to fetch repositories for stack analysis', error);
             return [];
@@ -167,8 +168,14 @@ export class GitHubService {
                 const repoName = repo.name;
                 if (!repoOwner || !repoName) continue;
 
+                const [languages, pkgStr, reqStr, cargoStr] = await Promise.all([
+                    client.getLanguages(repoOwner, repoName).catch(() => null),
+                    client.getFileContent(repoOwner, repoName, 'package.json').catch(() => null),
+                    client.getFileContent(repoOwner, repoName, 'requirements.txt').catch(() => null),
+                    client.getFileContent(repoOwner, repoName, 'Cargo.toml').catch(() => null)
+                ]);
+
                 // 1. Languages
-                const languages = await client.getLanguages(repoOwner, repoName);
                 if (languages && typeof languages === 'object') {
                     for (const [lang, bytes] of Object.entries(languages)) {
                         // Normalize bytes into basic point scale (1 point per 10KB)
@@ -177,7 +184,6 @@ export class GitHubService {
                 }
 
                 // 2. package.json
-                const pkgStr = await client.getFileContent(repoOwner, repoName, 'package.json');
                 if (pkgStr) {
                     try {
                         const pkg = JSON.parse(pkgStr);
@@ -195,7 +201,6 @@ export class GitHubService {
                 }
 
                 // 3. requirements.txt
-                const reqStr = await client.getFileContent(repoOwner, repoName, 'requirements.txt');
                 if (reqStr) {
                     const lcReq = reqStr.toLowerCase();
                     if (lcReq.includes('django')) addWeight('Django', 10);
@@ -206,7 +211,6 @@ export class GitHubService {
                 }
 
                 // 4. Cargo.toml
-                const cargoStr = await client.getFileContent(repoOwner, repoName, 'Cargo.toml');
                 if (cargoStr) {
                     if (cargoStr.includes('tokio')) addWeight('Tokio', 10);
                     if (cargoStr.includes('actix')) addWeight('Actix', 10);

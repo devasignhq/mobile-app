@@ -5,18 +5,18 @@ import { GitHubApiClient } from '../utils/githubClient';
 vi.mock('../utils/githubClient');
 
 describe('GitHubService - analyzeTechStack', () => {
-    let mockPaginate: any;
+    let mockRequest: any;
     let mockGetLanguages: any;
     let mockGetFileContent: any;
 
     beforeEach(() => {
-        mockPaginate = vi.fn();
-        mockGetLanguages = vi.fn();
-        mockGetFileContent = vi.fn();
+        mockRequest = vi.fn();
+        mockGetLanguages = vi.fn().mockResolvedValue({});
+        mockGetFileContent = vi.fn().mockResolvedValue(null);
 
         (GitHubApiClient as any).mockImplementation(function() {
             return {
-                paginate: mockPaginate,
+                request: mockRequest,
                 getLanguages: mockGetLanguages,
                 getFileContent: mockGetFileContent,
             };
@@ -28,18 +28,18 @@ describe('GitHubService - analyzeTechStack', () => {
     });
 
     it('should correctly weight and sort tech stack', async () => {
-        mockPaginate.mockResolvedValue([
+        mockRequest.mockResolvedValue({ data: [
             { owner: { login: 'user1' }, name: 'repo1', stargazers_count: 10, pushed_at: new Date().toISOString() },
             { owner: { login: 'user1' }, name: 'repo2', stargazers_count: 5, pushed_at: new Date().toISOString() }
-        ]);
+        ]});
 
-        mockGetLanguages.mockImplementation(async (owner: string, repo: string) => {
+        mockGetLanguages.mockImplementation(async (_owner: string, repo: string) => {
             if (repo === 'repo1') return { 'TypeScript': 51200 }; // 5 points
             if (repo === 'repo2') return { 'Python': 102400 }; // 10 points
             return {};
         });
 
-        mockGetFileContent.mockImplementation(async (owner: string, repo: string, path: string) => {
+        mockGetFileContent.mockImplementation(async (_owner: string, repo: string, path: string) => {
             if (repo === 'repo1' && path === 'package.json') {
                 return JSON.stringify({ dependencies: { 'react': '1.0.0', 'jest': '2.0.0' } }); // React 10, Jest 5
             }
@@ -70,10 +70,10 @@ describe('GitHubService - analyzeTechStack', () => {
     });
 
     it('should gracefully handle repo iteration errors', async () => {
-        mockPaginate.mockResolvedValue([
+        mockRequest.mockResolvedValue({ data: [
             { owner: { login: 'user1' }, name: 'good-repo', stargazers_count: 0 },
             { owner: { login: 'user1' }, name: 'bad-repo', stargazers_count: 0 }
-        ]);
+        ]});
 
         mockGetLanguages.mockImplementation(async (owner: string, repo: string) => {
             if (repo === 'bad-repo') throw new Error('API Error');
