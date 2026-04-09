@@ -3,6 +3,8 @@
  * Handles OAuth token exchange and fetching user profile information.
  */
 
+import { GitHubApiClient, GitHubRateLimitError, GitHubApiError } from '../utils/githubClient';
+
 export interface GitHubUser {
     id: number;
     login: string;
@@ -80,47 +82,23 @@ export class GitHubService {
      * Fetches the user profile from GitHub.
      */
     async getUserProfile(accessToken: string): Promise<GitHubUser> {
-        const response = await fetch('https://api.github.com/user', {
-            headers: {
-                Authorization: `Bearer ${accessToken}`,
-                Accept: 'application/json',
-                'User-Agent': 'Devasign-API',
-            },
-        });
+        const client = new GitHubApiClient(accessToken);
+        
+        try {
+            const user = await client.getUserProfile();
+            
+            // If email is null, fetch it from the emails endpoint
+            if (!user.email) {
+                user.email = await client.getUserPrimaryEmail();
+            }
 
-        if (!response.ok) {
-            throw new Error(`Failed to fetch GitHub user profile: ${response.statusText}`);
+            return user;
+        } catch (error) {
+            if (error instanceof GitHubRateLimitError || error instanceof GitHubApiError) {
+                throw error;
+            }
+            throw new Error(`Failed to fetch GitHub user profile: ${error instanceof Error ? error.message : String(error)}`);
         }
-
-        const user = await response.json();
-
-        // If email is null, fetch it from the emails endpoint
-        if (!user.email) {
-            user.email = await this.getUserPrimaryEmail(accessToken);
-        }
-
-        return user;
-    }
-
-    /**
-     * Fetches the user's primary email from GitHub.
-     */
-    private async getUserPrimaryEmail(accessToken: string): Promise<string | null> {
-        const response = await fetch('https://api.github.com/user/emails', {
-            headers: {
-                Authorization: `Bearer ${accessToken}`,
-                Accept: 'application/json',
-                'User-Agent': 'Devasign-API',
-            },
-        });
-
-        if (!response.ok) {
-            return null;
-        }
-
-        const emails: GitHubEmail[] = await response.json();
-        const primaryEmail = emails.find((e) => e.primary && e.verified);
-        return primaryEmail ? primaryEmail.email : (emails[0]?.email || null);
     }
 }
 
