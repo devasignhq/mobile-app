@@ -26,7 +26,8 @@ usersRoute.post('/me/sync', async (c) => {
             return c.json({ error: 'Failed to fetch GitHub profile' }, 500);
         }
 
-        await db.update(users)
+        // Use `.returning()` to get the true database state after the update
+        const [updatedUser] = await db.update(users)
             .set({
                 avatarUrl: githubUser.avatar_url,
                 // Note: we might not want to overwrite email if it's missing in public profile
@@ -34,14 +35,15 @@ usersRoute.post('/me/sync', async (c) => {
                 publicRepos: githubUser.public_repos || 0,
                 updatedAt: new Date(),
             })
-            .where(eq(users.id, user.id));
+            .where(eq(users.id, user.id))
+            .returning();
 
         // Return updated attributes
         return c.json({
             success: true,
-            avatarUrl: githubUser.avatar_url,
-            email: githubUser.email || null,
-            publicRepos: githubUser.public_repos || 0,
+            avatarUrl: updatedUser.avatarUrl,
+            email: updatedUser.email,
+            publicRepos: updatedUser.publicRepos,
         });
     } catch (error: any) {
         console.error('Failed to sync user profile:', error);

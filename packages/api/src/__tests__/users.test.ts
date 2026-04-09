@@ -15,7 +15,13 @@ vi.mock('../db', () => ({
     db: {
         update: vi.fn(() => ({
             set: vi.fn(() => ({
-                where: vi.fn(),
+                where: vi.fn(() => ({
+                    returning: vi.fn(() => [{
+                        avatarUrl: 'https://synced.avatar.url',
+                        email: 'test@example.com',
+                        publicRepos: 42
+                    }])
+                })),
             })),
         })),
     },
