@@ -106,6 +106,13 @@
       "when": 1772038086925,
       "tag": "0016_marvelous_wallop",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1775741698014,
+      "tag": "0017_strong_red_wolf",
+      "breakpoints": true
     }
   ]
 }

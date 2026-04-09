@@ -22,6 +22,7 @@ export const users = pgTable('users', {
     walletSecretEnc: text('wallet_secret_enc'),
     totalEarned: decimal('total_earned', { precision: 20, scale: 7 }).default('0').notNull(),
     bountiesCompleted: integer('bounties_completed').default(0).notNull(),
+    publicRepos: integer('public_repos').default(0).notNull(),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at')
         .notNull()

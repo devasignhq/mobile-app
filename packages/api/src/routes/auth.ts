@@ -106,6 +106,7 @@ auth.get('/github/callback', async (c) => {
                     username: githubUser.login,
                     avatarUrl: githubUser.avatar_url,
                     email: githubUser.email,
+                    publicRepos: githubUser.public_repos || 0,
                     updatedAt: new Date(),
                 })
                 .where(eq(users.id, user.id));
@@ -131,6 +132,7 @@ auth.get('/github/callback', async (c) => {
                 username: githubUser.login,
                 avatarUrl: githubUser.avatar_url,
                 email: githubUser.email,
+                publicRepos: githubUser.public_repos || 0,
                 totalEarned: '0',
                 bountiesCompleted: 0,
             };

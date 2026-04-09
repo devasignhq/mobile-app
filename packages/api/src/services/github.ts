@@ -11,6 +11,7 @@ export interface GitHubUser {
     email: string | null;
     avatar_url: string;
     name: string | null;
+    public_repos: number;
 }
 
 export interface GitHubEmail {
@@ -99,6 +100,26 @@ export class GitHubService {
             }
             throw new Error(`Failed to fetch GitHub user profile: ${error instanceof Error ? error.message : String(error)}`);
         }
+    }
+
+    /**
+     * Fetches the user profile from GitHub using username (public unauthenticated API).
+     */
+    async getUserProfileByUsername(username: string): Promise<GitHubUser> {
+        // We use a blank token for unauthenticated request, or we can instantiate fetch directly
+        // GitHub allows 60 requests per hour for unauthenticated.
+        const response = await fetch(`https://api.github.com/users/${username}`, {
+            headers: {
+                Accept: 'application/vnd.github.v3+json',
+                'User-Agent': 'Devasign-API',
+            },
+        });
+
+        if (!response.ok) {
+            throw new Error(`GitHub API error: ${response.statusText}`);
+        }
+
+        return await response.json() as GitHubUser;
     }
 }
 

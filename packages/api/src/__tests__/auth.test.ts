@@ -106,6 +106,7 @@ describe('Authentication Flow', () => {
                 login: 'testuser',
                 email: 'test@example.com',
                 avatar_url: 'https://avatar.url',
+                public_repos: 10,
             };
 
             const mockDbUser = {
@@ -114,6 +115,7 @@ describe('Authentication Flow', () => {
                 username: 'testuser',
                 email: 'test@example.com',
                 avatarUrl: 'https://avatar.url',
+                publicRepos: 10,
             };
 
             (githubService.getAccessToken as any).mockResolvedValue('fake-access-token');
@@ -150,6 +152,7 @@ describe('Authentication Flow', () => {
                 login: 'updateduser',
                 email: 'updated@example.com',
                 avatar_url: 'https://updated.avatar.url',
+                public_repos: 15,
             };
 
             const mockDbUserPreUpdate = {
@@ -158,6 +161,7 @@ describe('Authentication Flow', () => {
                 username: 'olduser',
                 email: 'old@example.com',
                 avatarUrl: 'https://old.avatar.url',
+                publicRepos: 10,
             };
 
             const mockDbUserPostUpdate = {
@@ -165,6 +169,7 @@ describe('Authentication Flow', () => {
                 username: 'updateduser',
                 email: 'updated@example.com',
                 avatarUrl: 'https://updated.avatar.url',
+                publicRepos: 15,
             };
 
             (githubService.getAccessToken as any).mockResolvedValue('fake-access-token');
