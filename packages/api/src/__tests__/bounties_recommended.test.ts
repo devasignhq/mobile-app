@@ -52,7 +52,7 @@ describe('GET /api/bounties/recommended', () => {
         expect(res.status).toBe(401);
     });
 
-    it('should sort bounties by relevance score based on tech stack', async () => {
+    it('should sort bounties by weighted relevance score based on tech stack', async () => {
         const mockUser = { id: 'test-user-id', techStack: ['react', 'node'] };
         vi.mocked(db.query.users.findFirst).mockResolvedValue(mockUser as any);
 
@@ -77,11 +77,16 @@ describe('GET /api/bounties/recommended', () => {
         expect(res.status).toBe(200);
         const body = await res.json();
 
-        // Check sorting: Bounty 2 (2 score), Bounty 3 (1 score), Bounty 1 (0 score)
+        // Bounty 2: coverage=2/2=1.0, depth=2/2=1.0 → score=1.0
+        // Bounty 3: coverage=1/2=0.5, depth=1/2=0.5 → score=0.5
+        // Bounty 1: coverage=0/1=0,   depth=0/2=0   → score=0
         expect(body.data).toHaveLength(3);
         expect(body.data[0].id).toBe('2');
+        expect(body.data[0].relevanceScore).toBe(1);
         expect(body.data[1].id).toBe('3');
+        expect(body.data[1].relevanceScore).toBe(0.5);
         expect(body.data[2].id).toBe('1');
+        expect(body.data[2].relevanceScore).toBe(0);
     });
 
     it('should fall back to sorting by createdAt for identical relevance scores', async () => {
@@ -114,10 +119,102 @@ describe('GET /api/bounties/recommended', () => {
         expect(res.status).toBe(200);
         const body = await res.json();
 
-        // Check sorting: Both have 1 score, so the newer one comes first
+        // Both have same score, so the newer one comes first
         expect(body.data).toHaveLength(2);
         expect(body.data[0].id).toBe('new');
         expect(body.data[1].id).toBe('old');
+        // Both should have equal relevance scores
+        expect(body.data[0].relevanceScore).toBe(body.data[1].relevanceScore);
+    });
+
+    it('should match tech tags case-insensitively', async () => {
+        const testUserId = 'test-user-id-case';
+        vi.mocked(verify).mockResolvedValue({
+            sub: testUserId,
+            username: 'testuser',
+            exp: Math.floor(Date.now() / 1000) + 3600
+        });
+
+        const mockUser = { id: testUserId, techStack: ['React', 'TypeScript'] };
+        vi.mocked(db.query.users.findFirst).mockResolvedValue(mockUser as any);
+
+        const mockBounties = [
+            { id: '1', techTags: ['react', 'typescript'], createdAt: new Date() },
+        ];
+
+        vi.mocked(db.query.bounties.findMany).mockResolvedValue(mockBounties as any);
+
+        const res = await app.request('/api/bounties/recommended', {
+            headers: {
+                'Authorization': 'Bearer valid.token'
+            }
+        });
+
+        expect(res.status).toBe(200);
+        const body = await res.json();
+
+        expect(body.data).toHaveLength(1);
+        expect(body.data[0].relevanceScore).toBe(1);
+    });
+
+    it('should return relevanceScore of 0 for bounties with no tech tags', async () => {
+        const testUserId = 'test-user-id-notags';
+        vi.mocked(verify).mockResolvedValue({
+            sub: testUserId,
+            username: 'testuser',
+            exp: Math.floor(Date.now() / 1000) + 3600
+        });
+
+        const mockUser = { id: testUserId, techStack: ['react'] };
+        vi.mocked(db.query.users.findFirst).mockResolvedValue(mockUser as any);
+
+        const mockBounties = [
+            { id: '1', techTags: [], createdAt: new Date() },
+        ];
+
+        vi.mocked(db.query.bounties.findMany).mockResolvedValue(mockBounties as any);
+
+        const res = await app.request('/api/bounties/recommended', {
+            headers: {
+                'Authorization': 'Bearer valid.token'
+            }
+        });
+
+        expect(res.status).toBe(200);
+        const body = await res.json();
+
+        expect(body.data).toHaveLength(1);
+        expect(body.data[0].relevanceScore).toBe(0);
+    });
+
+    it('should return relevanceScore 0 when user has no tech stack', async () => {
+        const testUserId = 'test-user-id-nostack';
+        vi.mocked(verify).mockResolvedValue({
+            sub: testUserId,
+            username: 'testuser',
+            exp: Math.floor(Date.now() / 1000) + 3600
+        });
+
+        const mockUser = { id: testUserId, techStack: [] };
+        vi.mocked(db.query.users.findFirst).mockResolvedValue(mockUser as any);
+
+        const mockBounties = [
+            { id: '1', techTags: ['react'], createdAt: new Date() },
+        ];
+
+        vi.mocked(db.query.bounties.findMany).mockResolvedValue(mockBounties as any);
+
+        const res = await app.request('/api/bounties/recommended', {
+            headers: {
+                'Authorization': 'Bearer valid.token'
+            }
+        });
+
+        expect(res.status).toBe(200);
+        const body = await res.json();
+
+        expect(body.data).toHaveLength(1);
+        expect(body.data[0].relevanceScore).toBe(0);
     });
 
     it('should use cache on subsequent requests within TTL', async () => {
