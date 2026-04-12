@@ -158,8 +158,12 @@ tasksRouter.post(
                     where: eq(bounties.id, id),
                 });
 
-                if (!currentBounty || currentBounty.status !== 'assigned') {
-                    throw new InvalidBountyStatusError(`Cannot submit work for bounty with status: ${currentBounty?.status}`);
+                if (!currentBounty) {
+                    throw new BountyNotFoundError();
+                }
+
+                if (currentBounty.status !== 'assigned') {
+                    throw new InvalidBountyStatusError(`Cannot submit work for bounty with status: ${currentBounty.status}`);
                 }
 
                 // 2. Create submission
@@ -185,6 +189,9 @@ tasksRouter.post(
 
             return c.json(result, 201);
         } catch (err: any) {
+            if (err instanceof BountyNotFoundError) {
+                return c.json({ error: err.message }, 404);
+            }
             if (err instanceof InvalidBountyStatusError) {
                 return c.json({ error: err.message }, 400);
             }
