@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { Variables } from '../middleware/auth';
+import { githubService } from '../services/github';
 import { db } from '../db';
 import { bounties, submissions, users, extensionRequests } from '../db/schema';
 import { eq } from 'drizzle-orm';
@@ -106,18 +107,63 @@ tasksRouter.post(
         const { pr_url, supporting_links, notes } = c.req.valid('json');
 
         try {
+            // Fetch bounty outside transaction for validation
+            const bounty = await db.query.bounties.findFirst({
+                where: eq(bounties.id, id),
+            });
+
+            if (!bounty) {
+                return c.json({ error: 'Bounty not found' }, 404);
+            }
+
+            if (bounty.status !== 'assigned') {
+                return c.json({ error: `Cannot submit work for bounty with status: ${bounty.status}` }, 400);
+            }
+
+            // GitHub PR Validation
+            const parsedUrl = new URL(pr_url);
+            const prMatch = parsedUrl.pathname.match(/^\/([^\/]+)\/([^\/]+)\/pull\/(\d+)/i);
+
+            if (parsedUrl.hostname.toLowerCase() !== 'github.com' || !prMatch) {
+                return c.json({ error: 'Invalid GitHub PR URL format' }, 400);
+            }
+
+            const [, prOwner, prRepo, prNumberStr] = prMatch;
+
+            if (
+                !bounty.repoOwner ||
+                !bounty.repoName ||
+                prOwner.toLowerCase() !== bounty.repoOwner.toLowerCase() ||
+                prRepo.toLowerCase() !== bounty.repoName.toLowerCase()
+            ) {
+                return c.json({ error: 'PR does not belong to the correct repository for this bounty' }, 400);
+            }
+
+            try {
+                const prData = await githubService.getPRDetails(prOwner, prRepo, parseInt(prNumberStr, 10));
+                if (!prData) {
+                    return c.json({ error: 'Pull Request not found on GitHub' }, 400);
+                }
+                
+                if (!user.username || prData.user?.login?.toLowerCase() !== user.username.toLowerCase()) {
+                    return c.json({ error: 'You are not the author of this Pull Request' }, 400);
+                }
+            } catch (err) {
+                return c.json({ error: 'Failed to verify Pull Request with GitHub' }, 502);
+            }
+
             const result = await db.transaction(async (tx) => {
-                // 1. Verify bounty is in 'assigned' status
-                const bounty = await tx.query.bounties.findFirst({
+                // Double-check status inside transaction to avoid race conditions
+                const currentBounty = await tx.query.bounties.findFirst({
                     where: eq(bounties.id, id),
                 });
 
-                if (!bounty) {
+                if (!currentBounty) {
                     throw new BountyNotFoundError();
                 }
 
-                if (bounty.status !== 'assigned') {
-                    throw new InvalidBountyStatusError(`Cannot submit work for bounty with status: ${bounty.status}`);
+                if (currentBounty.status !== 'assigned') {
+                    throw new InvalidBountyStatusError(`Cannot submit work for bounty with status: ${currentBounty.status}`);
                 }
 
                 // 2. Create submission

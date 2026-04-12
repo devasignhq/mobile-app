@@ -133,6 +133,37 @@ export class GitHubService {
     }
 
     /**
+     * Fetches PR details using repository owner, name and pull number.
+     * Uses system GITHUB_TOKEN if available.
+     */
+    async getPRDetails(owner: string, repo: string, pullNumber: number): Promise<any> {
+        const headers: Record<string, string> = {
+            Accept: 'application/vnd.github.v3+json',
+            'User-Agent': 'Devasign-API',
+        };
+
+        if (process.env.GITHUB_TOKEN) {
+            headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
+        }
+
+        const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/pulls/${pullNumber}`, {
+            headers,
+        });
+
+        if (!response.ok) {
+            if (response.status === 404) {
+                return null; // PR not found
+            }
+            if (response.status === 403 && response.headers.get('x-ratelimit-remaining') === '0') {
+                throw new Error('GitHub API rate limit exceeded. Please try again later.');
+            }
+            throw new Error(`GitHub API error: ${response.statusText}`);
+        }
+
+        return await response.json();
+    }
+
+    /**
      * Analyzes the user's top repositories to detect their technical stack.
      */
     async analyzeTechStack(accessToken: string): Promise<string[]> {
